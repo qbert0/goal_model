@@ -1,0 +1,70 @@
+istar SmartDelivery
+
+actor Customer
+description = "Người sử dụng dịch vụ"
+
+goal PaymentConfirmed
+description = "Thanh toán đã được xác nhận"
+end
+
+task SubmitOrder
+description = "Gửi đơn hàng"
+end
+
+goal TrackOrder
+description = "Theo dõi đơn hàng"
+end
+end
+
+agent DeliverySystem
+description = "Hệ thống giao hàng"
+
+goal DeliverPackage
+description = "Hoàn thành giao hàng"
+end
+
+goal FastDelivery help DeliverPackage
+description = "Giao hàng nhanh"
+end
+
+goal DeliveryTracking help DeliverPackage
+description = "Theo dõi giao hàng"
+end
+
+task AssignDriver make DeliverPackage
+description = "Gán tài xế"
+end
+
+task RouteOptimization help FastDelivery
+description = "Tối ưu tuyến đường"
+end
+
+resource DriverDatabase neededBy AssignDriver
+description = "Cơ sở dữ liệu tài xế"
+end
+
+quality Reliability qualify DriverDatabase
+description = "Độ tin cậy"
+end
+
+depends DeliverPackage on Customer for { goal PaymentConfirmed, task SubmitOrder }
+end
+
+role Driver
+description = "Người thực hiện giao hàng"
+
+goal CompleteDelivery
+description = "Hoàn tất giao hàng"
+end
+
+task ReceiveAssignment make CompleteDelivery
+description = "Nhận nhiệm vụ giao hàng"
+end
+
+quality Safety
+description = "An toàn"
+end
+end
+
+agent Driver is DeliverySystem
+agent Driver participant Customer

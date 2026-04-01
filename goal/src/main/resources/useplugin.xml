@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?use version="7.1.1" ?>
+<plugin name="GoalModel Plugin" version="1.0">
+    <actions>
+        <action label="GoalModel Compiler"
+                icon="images/ocl-icon.png"
+                class="org.vnu.sme.goal.actions.ActionOpenGOAL"
+                tooltip="GoalModel Parser"
+                menu="GoalModel Plugin"
+                menuitem="GoalModel Parser"
+                toolbaritem="GoalModel Parser"
+                id="org.vnu.sme.goal.actions.ActionOpenGOAL">
+        </action>
+    </actions>
+</plugin>

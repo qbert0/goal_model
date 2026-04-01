@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Plugin-Name: GoalModel Plugin
+Plugin-Version: 1.0
+Main-Class: org.vnu.sme.goal.Main
+Plugin-Publisher: vnu-sme

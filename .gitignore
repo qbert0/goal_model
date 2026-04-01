@@ -1,0 +1,12 @@
+# Intellij config
+.idea
+bin
+*.iml
+
+# Eclipse config
+*.classpath
+*.project
+.settings
+
+# Build folders
+target

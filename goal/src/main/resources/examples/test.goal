@@ -1,0 +1,68 @@
+istar SmartDelivery
+
+actor Customer
+description = "Người sử dụng dịch vụ"
+wants = { FastDelivery, DeliveryTracking }
+end
+
+agent DeliverySystem
+description = "Hệ thống giao hàng"
+wants = { AssignDriver, RouteOptimization, DriverDatabase }
+end
+
+role Driver
+description = "Người thực hiện giao hàng"
+end
+
+goal FastDelivery
+description = "Giao hàng nhanh"
+end
+
+goal DeliveryTracking
+description = "Theo dõi đơn hàng"
+end
+
+task AssignDriver
+description = "Gán tài xế"
+end
+
+task RouteOptimization
+description = "Tối ưu tuyến đường"
+end
+
+resource DriverDatabase
+description = "Cơ sở dữ liệu tài xế"
+end
+
+quality Reliability
+description = "Độ tin cậy"
+end
+
+dependency Dep1
+depender = Customer
+dependee = DeliverySystem
+dependum = FastDelivery
+end
+
+refinement Ref1
+type = and
+parent = FastDelivery
+children = { AssignDriver, RouteOptimization }
+description = "Để giao nhanh cần gán tài xế và tối ưu tuyến"
+end
+
+neededBy Need1
+resource = DriverDatabase
+task = AssignDriver
+end
+
+qualification Qual1
+quality = Reliability
+target = DriverDatabase
+end
+
+contribution C1
+from = RouteOptimization
+to = FastDelivery
+type = help
+end
