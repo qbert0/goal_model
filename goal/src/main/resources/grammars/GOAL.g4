@@ -9,169 +9,173 @@ package org.vnu.sme.goal.parser;
  * ========================================================= */
 
 goalModel
-    : 'istar' IDENT
-      actorBlock*
-      actorRelationDecl*
-      EOF
+    : ISTAR IDENT (actor | dependencyDefinition)* EOF
     ;
 
 /* -------------------------
- * Actor blocks
+ * Actor hierarchy
  * ------------------------- */
-
-actorBlock
-    : actorHeader
-      descriptionClause?
-      actorBody*
-      'end'
+actor
+    : actorDefinition
+    | agentDefinition
+    | roleDefinition
     ;
 
-actorHeader
-    : 'actor' IDENT
-    | 'agent' IDENT
-    | 'role' IDENT
+actorDefinition
+    : ACTOR IDENT (COLON IDENT)? (GT IDENT)? LBRACE actorBody RBRACE
+    ;
+
+agentDefinition
+    : AGENT IDENT (COLON IDENT)? (GT IDENT)? LBRACE actorBody RBRACE
+    ;
+
+roleDefinition
+    : ROLE IDENT (COLON IDENT)? (GT IDENT)? LBRACE actorBody RBRACE
     ;
 
 actorBody
-    : goalDecl
-    | taskDecl
-    | resourceDecl
-    | qualityDecl
-    | dependencyDecl
+    : intentionalElement*
     ;
 
 /* -------------------------
- * Element declarations inside actor
+ * Intentional elements
  * ------------------------- */
+intentionalElement
+    : goalDecl
+    | taskDecl
+    | qualityDecl
+    | resourceDecl
+    ;
 
+// Quan hệ nối tiếp ngay sau IDENT và trước LBRACE, phân tách bằng dấu phẩy
 goalDecl
-    : 'goal' IDENT goalRelationTail?
-      descriptionClause?
-      'end'
+    : GOAL IDENT relationList? LBRACE elementBody RBRACE
     ;
 
 taskDecl
-    : 'task' IDENT taskRelationTail?
-      descriptionClause?
-      'end'
-    ;
-
-resourceDecl
-    : 'resource' IDENT resourceRelationTail?
-      descriptionClause?
-      'end'
+    : TASK IDENT relationList? LBRACE elementBody RBRACE
     ;
 
 qualityDecl
-    : 'quality' IDENT qualityRelationTail?
-      descriptionClause?
-      'end'
+    : QUALITY IDENT relationList? LBRACE elementBody RBRACE
+    ;
+
+resourceDecl
+    : RESOURCE IDENT relationList? LBRACE elementBody RBRACE
+    ;
+
+elementBody
+    : descriptionClause*
     ;
 
 /* -------------------------
- * Internal relations between elements
+ * Relations 
  * ------------------------- */
-
-goalRelationTail
-    : goalRelationOp IDENT
+relationList
+    : relation (COMMA relation)*
     ;
 
-taskRelationTail
-    : taskRelationOp IDENT
+relation
+    : relOp IDENT
     ;
 
-resourceRelationTail
-    : 'neededBy' IDENT
-    ;
-
-qualityRelationTail
-    : 'qualify' IDENT
-    ;
-
-goalRelationOp
-    : 'and'
-    | 'or'
-    | 'help'
-    | 'make'
-    | 'hurt'
-    | 'break'
-    ;
-
-taskRelationOp
-    : 'help'
-    | 'make'
-    | 'hurt'
-    | 'break'
+relOp
+    : AND_REFINE
+    | OR_REFINE
+    | CONTRIB_MAKE
+    | CONTRIB_HELP
+    | CONTRIB_HURT
+    | CONTRIB_BREAK
+    | QUALIFY
+    | NEEDED_BY
     ;
 
 /* -------------------------
- * Dependency inside actor block
- * Example:
- * depends DeliverPackage on Customer
- *     for { goal PaymentConfirmed, task SubmitOrder }
+ * Dependency
  * ------------------------- */
-
-dependencyDecl
-    : 'depends' IDENT 'on' IDENT 'for' LBRACE dependencyTarget (COMMA dependencyTarget)* RBRACE
+dependencyDefinition
+    : DEPENDENCY IDENT LBRACE
+        dependerClause
+        dependeeClause
+        dependumClause
+      RBRACE
     ;
 
-dependencyTarget
-    : elementType IDENT
+dependerClause
+    : DEPENDER qualifiedName
     ;
 
-elementType
-    : 'goal'
-    | 'task'
-    | 'resource'
-    | 'quality'
+dependeeClause
+    : DEPENDEE qualifiedName
     ;
 
-/* -------------------------
- * Relations between actors
- * Example:
- * agent Driver is DeliverySystem
- * agent Driver participant Customer
- * ------------------------- */
-
-actorRelationDecl
-    : actorType IDENT actorRelationOp IDENT
+// dependum bản chất là chứa một intentionalElement bên trong (ví dụ: goal OrderAccepted {...})
+dependumClause
+    : DEPENDUM intentionalElement
     ;
 
-actorType
-    : 'actor'
-    | 'agent'
-    | 'role'
-    ;
-
-actorRelationOp
-    : 'is'
-    | 'participant'
+qualifiedName
+    : IDENT (DOT IDENT)*
     ;
 
 /* -------------------------
  * Common clauses
  * ------------------------- */
-
+// EQ (=) và SEMI (;) được cho phép tùy chọn (optional) để linh hoạt với các ví dụ trong docs
 descriptionClause
-    : 'description' '=' STRING
+    : DESCRIPTION EQ? STRING SEMI?
     ;
+
 
 /* =========================================================
  * Lexer Rules
  * ========================================================= */
 
-LBRACE : '{' ;
-RBRACE : '}' ;
-COMMA  : ',' ;
+// Operators
+AND_REFINE      : '&>' ;
+OR_REFINE       : '|>' ;
+CONTRIB_MAKE    : '++>' ;
+CONTRIB_HELP    : '+>' ; 
+CONTRIB_HURT    : '->' ;
+CONTRIB_BREAK   : '-->' ;
+QUALIFY         : '=>' ;
+NEEDED_BY       : '<>' ;
+
+// Separators
+LBRACE          : '{' ;
+RBRACE          : '}' ;
+SEMI            : ';' ;
+COLON           : ':' ;
+GT              : '>' ;
+DOT             : '.' ;
+EQ              : '=' ;
+COMMA           : ',' ;
+
+// Keywords
+ISTAR           : 'istar' ;
+ACTOR           : 'actor' ;
+AGENT           : 'agent' ;
+ROLE            : 'role' ;
+GOAL            : 'goal' ;
+TASK            : 'task' ;
+QUALITY         : 'quality' ;
+RESOURCE        : 'resource' ;
+DESCRIPTION     : 'description' ;
+DEPENDENCY      : 'dependency' ;
+DEPENDER        : 'depender' ;
+DEPENDEE        : 'dependee' ;
+DEPENDUM        : 'dependum' ;
+
+// Lexical tokens
+IDENT
+    : [a-zA-Z_][a-zA-Z_0-9]*
+    ;
 
 STRING
     : '"' ( ~["\\] | '\\' . )* '"'
     ;
 
-IDENT
-    : [a-zA-Z_][a-zA-Z_0-9]*
-    ;
-
+// Whitespace and comments
 WS
     : [ \t\r\n\f]+ -> skip
     ;

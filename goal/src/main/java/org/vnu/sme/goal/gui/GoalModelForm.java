@@ -8,12 +8,15 @@ import org.tzi.use.gui.util.GridBagHelper;
 import org.tzi.use.main.Session;
 
 import javax.swing.*;
+
 import java.awt.GridBagConstraints;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.io.File;
+
+import org.vnu.sme.goal.parser.GoalLoader;
 
 public class GoalModelForm extends ModelFormAbs {
 
@@ -115,8 +118,8 @@ public class GoalModelForm extends ModelFormAbs {
             logWriter.flush();
 
             // TODO:
-            // GoalLoader loader = new GoalLoader(session, getSelectedFile().getAbsolutePath(), logWriter, mainWindow);
-            // boolean success = loader.run();
+            GoalLoader loader = new GoalLoader(session, getSelectedFile().getAbsolutePath(), logWriter, mainWindow);
+            boolean success = loader.run();
 
             showParseSuccess();
             close();

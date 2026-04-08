@@ -1,0 +1,28 @@
+istar SmartDelivery
+
+actor Customer {
+    goal PaymentConfirmed {
+        description = "Thanh toan da duoc xac nhan";
+    }
+    
+    goal ReceivePackage {
+        description = "Nhan duoc hang dung han";
+    }
+}
+
+actor ServiceProvider {
+    quality ServiceQuality {
+        description = "Chat luong dich vu tong the";
+    }
+}
+
+role Dispatcher {
+    task RouteOptimization {
+        description = "Toi uu lo trinh giao hang";
+    }
+    
+    goal MinimizeDistance {
+        description = "Giam thieu quang duong di chuyen";
+        
+    }
+}

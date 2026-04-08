@@ -1,70 +1,227 @@
 istar SmartDelivery
 
-actor Customer
-description = "Người sử dụng dịch vụ"
+// =========================================================
+// 1. ĐỊNH NGHĨA CÁC ACTOR
+// =========================================================
 
-goal PaymentConfirmed
-description = "Thanh toán đã được xác nhận"
-end
+// Actor tổng quát: Khách hàng
+actor Customer {
+    goal PaymentConfirmed {
+        description = "Thanh toan da duoc xac nhan";
+    }
+    
+    goal ReceivePackage {
+        description = "Nhan duoc hang dung han";
+    }
+}
 
-task SubmitOrder
-description = "Gửi đơn hàng"
-end
+// Actor tổng quát: Nhà cung cấp dịch vụ
+actor ServiceProvider {
+    quality ServiceQuality {
+        description = "Chat luong dich vu tong the";
+    }
+}
 
-goal TrackOrder
-description = "Theo dõi đơn hàng"
-end
-end
+// Role: Người điều phối (trừu tượng, chức năng)
+role Dispatcher {
+    task RouteOptimization {
+        description = "Toi uu lo trinh giao hang";
+    }
+    
+    goal MinimizeDistance {
+        description = "Giam thieu quang duong di chuyen";
+        
+    }
+    task RouteOptimization &> MinimizeDistance { }
+}
 
-agent DeliverySystem
-description = "Hệ thống giao hàng"
+// Role: Người giao hàng (trừu tượng)
+role Deliverer {
+    goal DeliverOnTime {
+        description = "Giao hang dung gio hen";
+    }
+    
+    quality Punctuality {
+        description = "Do dung gio cua tai xe";
+    }
+}
 
-goal DeliverPackage
-description = "Hoàn thành giao hàng"
-end
+// =========================================================
+// 2. ĐỊNH NGHĨA CÁC AGENT (kế thừa từ Actor/Role)
+// =========================================================
 
-goal FastDelivery help DeliverPackage
-description = "Giao hàng nhanh"
-end
+// Agent cụ thể: Hệ thống giao hàng (kế thừa từ ServiceProvider)
+agent DeliverySystem : ServiceProvider {
+    goal DeliverPackage {
+        description = "Hoan thanh viec giao hang den khach";
+    }
+    
+    quality FastDelivery {
+        description = "Thoi gian giao hang nhanh";
+    }
+    
+    quality HighReliability {
+        description = "Do tin cay cua he thong";
+    }
+    
+    // Quan hệ giữa các quality
+    quality FastDelivery ++> HighReliability { }
+    
+    task ProcessOrder {
+        description = "Xu ly don hang tu khach";
+    }
+    
+    task AssignDriver {
+        description = "Phan cong tai xe phu hop";
+    }
+    
+    task VerifyDriverLicense {
+        description = "Kiem tra bang lai xe";
+    }
+    
+    resource DriverDatabase {
+        description = "Co so du lieu thong tin tai xe";
+    }
+    
+    // Quan hệ refinement (AND)
+    task ProcessOrder &> DeliverPackage { }
+    
+    // Quan hệ refinement kết hợp contribution
+    task AssignDriver &> DeliverPackage, ++> FastDelivery { }
+    
+    // Quan hệ refinement
+    task VerifyDriverLicense &> AssignDriver { }
+    
+    // Quan hệ neededBy: resource cung cap cho task
+    resource DriverDatabase <> AssignDriver { }
+    
+    // Quan hệ qualification: quality áp dụng lên resource
+    quality SystemSecurity => DriverDatabase {
+        description = "Yeu cau bao mat cho co so du lieu";
+    }
+}
 
-goal DeliveryTracking help DeliverPackage
-description = "Theo dõi giao hàng"
-end
+// Agent cụ thể: Tài xế giao hàng (kế thừa từ Customer? và tham gia role Deliverer)
+agent DeliveryDriver : Customer > Deliverer {
+    goal PickupPackage {
+        description = "Lay hang tu kho";
+    }
+    
+    goal DeliverToCustomer {
+        description = "Giao hang den tay khach";
+    }
+    task NavigateRoute &> DeliverToCustomer { }
 
-task AssignDriver make DeliverPackage
-description = "Gán tài xế"
-end
+    
+    task NavigateRoute {
+        description = "Dieu huong theo lo trinh toi uu";
+    }
+    
+    // Contribution: task này giúp đạt được quality Punctuality
+    task NavigateRoute ++> Punctuality { }
+}
 
-task RouteOptimization help FastDelivery
-description = "Tối ưu tuyến đường"
-end
+// Agent tự động: Robot giao hàng (tham gia role Dispatcher và Deliverer)
+agent DeliveryDrone > Dispatcher {
+    goal AutoNavigate {
+        description = "Tu dong dan duong den dich";
+    }
+    
+    task AvoidObstacle {
+        description = "Tranh vat can tren duong";
+    }
+    
+    quality BatteryOptimization {
+        description = "Toi uu luong pin cho hanh trinh";
+    }
+    
+    // OR refinement: chỉ cần một trong hai
+    task AvoidObstacle |> AutoNavigate { }
+}
 
-resource DriverDatabase neededBy AssignDriver
-description = "Cơ sở dữ liệu tài xế"
-end
+// =========================================================
+// 3. ĐỊNH NGHĨA CÁC DEPENDENCY (phụ thuộc giữa các actor)
+// =========================================================
 
-quality Reliability qualify DriverDatabase
-description = "Độ tin cậy"
-end
+// Dependency: Xác nhận đơn hàng
+dependency OrderConfirmation {
+    depender DeliverySystem.ProcessOrder
+    dependee Customer.PaymentConfirmed
+    
+    dependum goal OrderAccepted {
+        description = "Giao hang phu thuoc vao viec don hang da duoc khach chap nhan";
+    }
+}
 
-depends DeliverPackage on Customer for { goal PaymentConfirmed, task SubmitOrder }
-end
+// Dependency: Phân công tài xế
+dependency DriverAssignment {
+    depender DeliverySystem.AssignDriver
+    dependee DeliveryDriver.PickupPackage
+    
+    dependum task CoordinateDelivery {
+        description = "Phoi hop giua he thong va tai xe de giao hang";
+    }
+}
 
-role Driver
-description = "Người thực hiện giao hàng"
+// Dependency: Chất lượng dịch vụ
+dependency ServiceQualityDependency {
+    depender Customer.ReceivePackage
+    dependee ServiceProvider.ServiceQuality
+    
+    dependum quality CustomerSatisfaction {
+        description = "Su hai long cua khach hang phu thuoc vao chat luong dich vu";
+    }
+}
 
-goal CompleteDelivery
-description = "Hoàn tất giao hàng"
-end
+// =========================================================
+// 4. VÍ DỤ VỀ QUAN HỆ IS-A VÀ PARTICIPATES-IN
+// =========================================================
 
-task ReceiveAssignment make CompleteDelivery
-description = "Nhận nhiệm vụ giao hàng"
-end
+// VIP Customer kế thừa từ Customer (is-a)
+actor VIPCustomer : Customer {
+    goal PrioritySupport {
+        description = "Duoc ho tro uu tien";
+    }
+    
+    quality PremiumExperience {
+        description = "Trai nghiem cao cap";
+    }
+}
 
-quality Safety
-description = "An toàn"
-end
-end
+// Senior Dispatcher kế thừa từ Dispatcher (is-a)
+role SeniorDispatcher : Dispatcher {
+    task HandleEmergency {
+        description = "Xu ly tinh huong khan cap";
+    }
+    
+    goal ResolveConflict {
+        description = "Giai quyet xung dot trong dieu phoi";
+    }
+    task HandleEmergency &> ResolveConflict { }
 
-agent Driver is DeliverySystem
-agent Driver participant Customer
+}
+
+// Agent cụ thể tham gia vào role SeniorDispatcher
+agent HumanDispatcher > SeniorDispatcher {
+    goal MonitorSystem {
+        description = "Giam sat he thong tu dong";
+    }
+}
+
+// =========================================================
+// 5. CHÚ THÍCH VÀ MÔ TẢ BỔ SUNG
+// =========================================================
+
+// Đây là một dependency phức tạp hơn
+dependency PerformanceTracking {
+    // Nguồn phụ thuộc: hệ thống cần theo dõi hiệu suất
+    depender DeliverySystem.DeliverPackage
+    
+    // Đích phụ thuộc: tài xế cần hoàn thành giao hàng
+    dependee DeliveryDriver.DeliverToCustomer
+    
+    // Phần tử trung gian
+    dependum goal DeliveryCompleted {
+        description = "Giao hang hoan tat la dieu kien de cap nhat hieu suat";
+    }
+}

@@ -1,4 +1,4 @@
-grammar GOAL;
+grammar goal12;
 
 @header {
 package org.vnu.sme.goal.parser;

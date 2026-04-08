@@ -3,7 +3,7 @@
 <plugin name="GoalModel Plugin" version="1.0">
     <actions>
         <action label="GoalModel Compiler"
-                icon="images/ocl-icon.png"
+                icon="images/goal.png"
                 class="org.vnu.sme.goal.actions.ActionOpenGOAL"
                 tooltip="GoalModel Parser"
                 menu="GoalModel Plugin"
