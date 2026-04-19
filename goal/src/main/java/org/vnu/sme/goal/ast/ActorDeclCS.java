@@ -11,12 +11,21 @@ public abstract class ActorDeclCS extends DescriptionContainerCS {
     protected List<Token> participatesInRefs;
     protected List<Token> isARefs;
     protected List<Token> wantsRefs;
+    private final List<IntentionalElementCS> intentionalElements = new ArrayList<>();
 
     public ActorDeclCS(Token fName) {
         this.fName = fName;
         this.participatesInRefs = new ArrayList<>();
         this.isARefs = new ArrayList<>();
         this.wantsRefs = new ArrayList<>();
+    }
+
+    public List<IntentionalElementCS> getIntentionalElements() {
+        return intentionalElements;
+    }
+
+    public void addIntentionalElement(IntentionalElementCS element) {
+        intentionalElements.add(element);
     }
 
     public Token getfName() {
