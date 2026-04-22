@@ -17,6 +17,7 @@ import org.tzi.use.uml.mm.MModel;
 import org.tzi.use.uml.sys.MSystemException;
 
 import org.vnu.sme.goal.ast.GoalModelCS;
+import org.vnu.sme.goal.parser.debug.GoalAstPrinter;
 
 public class GOALCompiler {
 
@@ -54,7 +55,15 @@ public class GOALCompiler {
             // =======================================================
             // Lưu ý: Tên hàm goalModel() phụ thuộc vào rule gốc cùng tên trong file GOAL.g4 của bạn
             GOALParser.GoalModelContext root = parser.goalModel();
+            if (Boolean.getBoolean("goal.dump.parsetree")) {
+                err.println("=== GOAL Parse Tree ===");
+                err.println(root.toStringTree(parser));
+            }
             GoalModelCS ast = GoalModelBuildingVisitor.build(root);
+            if (Boolean.getBoolean("goal.dump.ast")) {
+                err.println("=== GOAL AST Dump ===");
+                err.println(GoalAstPrinter.dump(ast));
+            }
             err.println("[GOAL] model=\"" + ast.getfName().getText() + "\" actors=" + ast.getActorDeclsCS().size()
                     + " dependencies=" + ast.getRelationDeclsCS().size());
 
