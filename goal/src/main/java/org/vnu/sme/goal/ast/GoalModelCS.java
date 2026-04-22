@@ -8,16 +8,15 @@ import org.antlr.v4.runtime.Token;
 public class GoalModelCS {
 
     private final Token fName;
-
     private List<ActorDeclCS> actorDeclsCS;
     private List<IntentionalElementCS> ieDeclsCS;
-    private List<RelationCS> relationDeclsCS;
+    private List<DependencyCS> dependencyDeclsCS;
 
     public GoalModelCS(Token fName) {
         this.fName = fName;
         this.actorDeclsCS = new ArrayList<>();
         this.ieDeclsCS = new ArrayList<>();
-        this.relationDeclsCS = new ArrayList<>();
+        this.dependencyDeclsCS = new ArrayList<>();
     }
 
     public Token getfName() {
@@ -40,12 +39,12 @@ public class GoalModelCS {
         this.ieDeclsCS = ieDeclsCS;
     }
 
-    public List<RelationCS> getRelationDeclsCS() {
-        return relationDeclsCS;
+    public List<DependencyCS> getDependencyDeclsCS() {
+        return dependencyDeclsCS;
     }
 
-    public void setRelationDeclsCS(List<RelationCS> relationDeclsCS) {
-        this.relationDeclsCS = relationDeclsCS;
+    public void setDependencyDeclsCS(List<DependencyCS> dependencyDeclsCS) {
+        this.dependencyDeclsCS = dependencyDeclsCS;
     }
 
     public void addActorDeclCS(ActorDeclCS actorDeclCS) {
@@ -56,7 +55,7 @@ public class GoalModelCS {
         this.ieDeclsCS.add(ieDeclCS);
     }
 
-    public void addRelationDeclCS(RelationCS relationDeclCS) {
-        this.relationDeclsCS.add(relationDeclCS);
+    public void addDependencyDeclCS(DependencyCS dependencyDeclCS) {
+        this.dependencyDeclsCS.add(dependencyDeclCS);
     }
 }

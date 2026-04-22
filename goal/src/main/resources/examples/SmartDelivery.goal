@@ -1,0 +1,79 @@
+istar SmartDelivery
+
+actor Customer {
+    goal PaymentConfirmed {
+        description = "Khách hàng đã hoàn tất thanh toán"
+        achieve:
+            self.orders->forAll(o | o.paymentConfirmed = true)
+    }
+}
+
+agent DeliverySystem {
+    goal DeliverPackage {
+        description = "Đơn hàng được giao thành công"
+    }
+
+    // 1. Phân rã mục tiêu lớn thành các loại Goal cụ thể
+    goal PaidOrdersEventuallyDelivered &> DeliverPackage {
+        description = "Mọi đơn đã thanh toán cuối cùng phải được giao"
+        achieve:
+            self.orders->forAll(o |
+                o.paymentConfirmed = true implies o.status = OrderStatus::DELIVERED
+            )
+    }
+
+    goal NoUnpaidDeliveredOrder &> DeliverPackage {
+        description = "Không được tồn tại đơn đã giao nhưng chưa thanh toán"
+        avoid:
+            self.orders->exists(o |
+                o.status = OrderStatus::DELIVERED and o.paymentConfirmed = false
+            )
+    }
+
+    goal AssignedOrderUsesUnavailableDriver &> DeliverPackage {
+        description = "Đơn đã gán tài xế thì tài xế đó không còn ở trạng thái rảnh"
+        maintain:
+            self.orders->forAll(o |
+                o.assignedDriver <> null implies o.assignedDriver.available = false
+            )
+    }
+
+    // 2. Định nghĩa các Task như một quan hệ chuyển trạng thái
+    task ProcessOrder &> DeliverPackage {
+        pre:
+            self.orders->exists(o | o.status = OrderStatus::CREATED and o.paymentConfirmed = true)
+        post:
+            self.orders->forAll(o |
+                o.status@pre = OrderStatus::CREATED and o.paymentConfirmed@pre = true
+                implies o.status = OrderStatus::PROCESSING
+            )
+    }
+
+    task AssignDriver &> DeliverPackage {
+        pre:
+            self.orders->exists(o | o.status = OrderStatus::PROCESSING and o.assignedDriver = null) and
+            self.drivers->exists(d | d.available = true and d.licenseValid = true)
+        post:
+            self.orders->forAll(o |
+                o.status@pre = OrderStatus::PROCESSING and o.assignedDriver@pre = null
+                implies o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null
+            ) and
+            self.orders->forAll(o |
+                o.assignedDriver <> null implies o.assignedDriver.available = false
+            )
+    }
+
+    task DeliverOrder &> DeliverPackage {
+        pre:
+            self.orders->exists(o |
+                o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null and o.paymentConfirmed = true
+            )
+        post:
+            self.orders->forAll(o |
+                o.status@pre = OrderStatus::ASSIGNED and o.assignedDriver@pre <> null and o.paymentConfirmed@pre = true
+                implies o.status = OrderStatus::DELIVERED
+            )
+    }
+
+    resource DriverDatabase <> AssignDriver { }
+}

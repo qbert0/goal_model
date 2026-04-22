@@ -8,54 +8,44 @@ import org.antlr.v4.runtime.Token;
 public abstract class ActorDeclCS extends DescriptionContainerCS {
 
     protected final Token fName;
-    protected List<Token> participatesInRefs;
-    protected List<Token> isARefs;
-    protected List<Token> wantsRefs;
+    protected Token parentRef;           // Sau COLON
+    protected Token instanceOfRef;       // Sau GT
+    protected List<IntentionalElementCS> intentionalElements;
 
     public ActorDeclCS(Token fName) {
         this.fName = fName;
-        this.participatesInRefs = new ArrayList<>();
-        this.isARefs = new ArrayList<>();
-        this.wantsRefs = new ArrayList<>();
+        this.intentionalElements = new ArrayList<>();
     }
 
     public Token getfName() {
         return fName;
     }
 
-    public List<Token> getParticipatesInRefs() {
-        return participatesInRefs;
+    public Token getParentRef() {
+        return parentRef;
     }
 
-    public void setParticipatesInRefs(List<Token> participatesInRefs) {
-        this.participatesInRefs = participatesInRefs;
+    public void setParentRef(Token parentRef) {
+        this.parentRef = parentRef;
     }
 
-    public void addParticipatesInRef(Token ref) {
-        this.participatesInRefs.add(ref);
+    public Token getInstanceOfRef() {
+        return instanceOfRef;
     }
 
-    public List<Token> getIsARefs() {
-        return isARefs;
+    public void setInstanceOfRef(Token instanceOfRef) {
+        this.instanceOfRef = instanceOfRef;
     }
 
-    public void setIsARefs(List<Token> isARefs) {
-        this.isARefs = isARefs;
+    public List<IntentionalElementCS> getIntentionalElements() {
+        return intentionalElements;
     }
 
-    public void addIsARef(Token ref) {
-        this.isARefs.add(ref);
+    public void setIntentionalElements(List<IntentionalElementCS> intentionalElements) {
+        this.intentionalElements = intentionalElements;
     }
 
-    public List<Token> getWantsRefs() {
-        return wantsRefs;
-    }
-
-    public void setWantsRefs(List<Token> wantsRefs) {
-        this.wantsRefs = wantsRefs;
-    }
-
-    public void addWantsRef(Token ref) {
-        this.wantsRefs.add(ref);
+    public void addIntentionalElement(IntentionalElementCS element) {
+        this.intentionalElements.add(element);
     }
 }

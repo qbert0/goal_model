@@ -1,0 +1,36 @@
+model SmartDeliveryState
+
+enum OrderStatus { CREATED, PROCESSING, ASSIGNED, DELIVERED, FAILED }
+
+class SystemState
+attributes
+end
+
+class Order
+attributes
+  id: String
+  status: OrderStatus
+  paymentConfirmed: Boolean
+end
+
+class Driver
+attributes
+  id: String
+  available: Boolean
+  licenseValid: Boolean
+end
+
+association HasOrders between
+  SystemState[1] role system
+  Order[*] role orders
+end
+
+association HasDrivers between
+  SystemState[1] role system
+  Driver[*] role drivers
+end
+
+association AssignedTo between
+  Order[0..1] role order
+  Driver[0..1] role assignedDriver
+end
