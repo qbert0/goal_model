@@ -18,6 +18,7 @@ import org.tzi.use.uml.sys.MSystemException;
 
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.parser.debug.GoalAstPrinter;
+import org.vnu.sme.goal.parser.semantic.pipeline.GoalSemanticPipelineSkeleton;
 
 public class GOALCompiler {
 
@@ -64,6 +65,7 @@ public class GOALCompiler {
                 err.println("=== GOAL AST Dump ===");
                 err.println(GoalAstPrinter.dump(ast));
             }
+            new GoalSemanticPipelineSkeleton().run(ast, model, err);
             err.println("[GOAL] model=\"" + ast.getfName().getText() + "\" actors=" + ast.getActorDeclsCS().size()
                     + " dependencies=" + ast.getRelationDeclsCS().size());
 
