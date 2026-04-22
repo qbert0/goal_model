@@ -1,0 +1,6 @@
+istar SymbolFailUnresolved
+
+agent DeliverySystem {
+    task AssignDriver ++> FastDelivery { }
+}
+

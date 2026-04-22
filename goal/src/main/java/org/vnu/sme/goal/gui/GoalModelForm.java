@@ -120,9 +120,12 @@ public class GoalModelForm extends ModelFormAbs {
             // TODO:
             GoalLoader loader = new GoalLoader(session, getSelectedFile().getAbsolutePath(), logWriter, mainWindow);
             boolean success = loader.run();
-
-            showParseSuccess();
-            close();
+            if (success) {
+                showParseSuccess();
+                close();
+            } else {
+                showParseError("Failed to load GOAL file. See console log for details.");
+            }
 
         } catch (Exception ex) {
             showParseError(ex.getMessage());

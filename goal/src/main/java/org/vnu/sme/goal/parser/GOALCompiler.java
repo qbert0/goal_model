@@ -19,13 +19,14 @@ import org.tzi.use.uml.sys.MSystemException;
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.parser.debug.GoalAstPrinter;
 import org.vnu.sme.goal.parser.semantic.pipeline.GoalSemanticPipelineSkeleton;
+import org.vnu.sme.goal.parser.semantic.symbols.SemanticIssue;
 
 public class GOALCompiler {
 
     private GOALCompiler() {
     }
 
-    public static void compileSpecification(String inName, PrintWriter err, MModel model)
+    public static boolean compileSpecification(String inName, PrintWriter err, MModel model)
             throws MSystemException, FileNotFoundException {
 
         InputStream inStream = new FileInputStream(inName);
@@ -65,18 +66,26 @@ public class GOALCompiler {
                 err.println("=== GOAL AST Dump ===");
                 err.println(GoalAstPrinter.dump(ast));
             }
-            new GoalSemanticPipelineSkeleton().run(ast, model, err);
+            java.util.List<SemanticIssue> issues = new GoalSemanticPipelineSkeleton().run(ast, model, err);
+            if (!issues.isEmpty()) {
+                err.println("[GOAL] compilation failed with " + issues.size() + " semantic issue(s).");
+                return false;
+            }
             err.println("[GOAL] model=\"" + ast.getfName().getText() + "\" actors=" + ast.getActorDeclsCS().size()
                     + " dependencies=" + ast.getRelationDeclsCS().size());
+            return true;
 
         } catch (ParseCancellationException e) {
             // Bắt lỗi cú pháp (thiếu ngoặc, sai chữ) và in ra màn hình
             err.println("BIÊN DỊCH THẤT BẠI: " + e.getMessage());
+            return false;
         } catch (IOException e) {
             err.println("Lỗi đọc file: " + e.getMessage());
+            return false;
         } catch (Exception e) {
             err.println("Lỗi hệ thống: " + e.getMessage());
             e.printStackTrace();
+            return false;
         } finally {
             err.flush();
         }

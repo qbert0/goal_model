@@ -1,0 +1,21 @@
+istar SymbolPassMinimal
+
+actor Customer {
+    goal PaymentConfirmed {
+        description = "Payment is confirmed";
+    }
+}
+
+agent DeliverySystem {
+    goal DeliverPackage { }
+    task AssignDriver &> DeliverPackage { }
+}
+
+dependency ConfirmFlow {
+    depender DeliverySystem.AssignDriver
+    dependee Customer.PaymentConfirmed
+    dependum goal OrderAccepted {
+        description = "Order must be accepted";
+    }
+}
+

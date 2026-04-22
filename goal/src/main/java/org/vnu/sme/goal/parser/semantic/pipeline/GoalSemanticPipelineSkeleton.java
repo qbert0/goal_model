@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.tzi.use.uml.mm.MModel;
 import org.vnu.sme.goal.ast.GoalModelCS;
+import org.vnu.sme.goal.parser.debug.GoalSymbolTablePrinter;
 import org.vnu.sme.goal.parser.semantic.symbols.DependencySymbol;
 import org.vnu.sme.goal.parser.semantic.symbols.GoalSymbolTableBuilder;
 import org.vnu.sme.goal.parser.semantic.symbols.GoalSymbolTable;
@@ -17,6 +18,7 @@ import org.vnu.sme.goal.parser.semantic.symbols.SemanticIssue;
  */
 public final class GoalSemanticPipelineSkeleton {
     private static final String DUMP_FLAG = "goal.dump.semantic.steps";
+    private static final String DUMP_SYMBOLS_FLAG = "goal.dump.symbols";
     private GoalSymbolTableBuilder builder;
 
     public List<SemanticIssue> run(GoalModelCS ast, MModel model, PrintWriter err) {
@@ -49,6 +51,7 @@ public final class GoalSemanticPipelineSkeleton {
     private void declarationPass(GoalModelCS ast, GoalSymbolTable table, PrintWriter err) {
         log(err, "[PASS1] declarationPass: traverse AST and collect declarations");
         builder.runDeclarationPass(ast, table);
+        dumpSymbols(err, "GOAL Symbol Table After Pass1", table);
     }
 
     /**
@@ -60,6 +63,7 @@ public final class GoalSemanticPipelineSkeleton {
     private void resolutionPass(GoalModelCS ast, GoalSymbolTable table, PrintWriter err) {
         log(err, "[PASS2] resolutionPass: resolve refs against symbol tables");
         builder.runResolutionPass(ast, table);
+        dumpSymbols(err, "GOAL Symbol Table After Pass2", table);
     }
 
     /**
@@ -106,13 +110,19 @@ public final class GoalSemanticPipelineSkeleton {
             return;
         }
         for (SemanticIssue issue : issues) {
-            log(err, "[SEM][" + issue.code() + "] " + issue.line() + ":" + issue.column() + " " + issue.message());
+            err.println("[SEM][" + issue.code() + "] " + issue.line() + ":" + issue.column() + " " + issue.message());
         }
     }
 
     private static void log(PrintWriter err, String message) {
         if (Boolean.getBoolean(DUMP_FLAG)) {
             err.println(message);
+        }
+    }
+
+    private static void dumpSymbols(PrintWriter err, String title, GoalSymbolTable table) {
+        if (Boolean.getBoolean(DUMP_SYMBOLS_FLAG)) {
+            err.println(GoalSymbolTablePrinter.dump(title, table));
         }
     }
 }
