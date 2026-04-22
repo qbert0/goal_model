@@ -27,6 +27,7 @@ import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfWriter;
 import org.tzi.use.config.Options;
+import org.tzi.use.config.LastPathStore;
 import org.tzi.use.config.RecentItems;
 import org.tzi.use.config.RecentItems.RecentItemsObserver;
 import org.tzi.use.gui.main.runtime.IPluginActionExtensionPoint;
@@ -1114,6 +1115,7 @@ public class MainWindow extends JFrame {
             if (lastPath != null) {
                 Options.setLastDirectory(lastPath.getParent());
             }
+            Options.setLastDirectory(LastPathStore.getUseSpecDirectory(Options.getLastDirectory()));
 
             JFileChooser fChooser = new JFileChooser(Options.getLastDirectory().toFile());
             ExtFileFilter filter = new ExtFileFilter("use", "USE specifications");
@@ -1132,6 +1134,7 @@ public class MainWindow extends JFrame {
 
             lastPath = fChooser.getCurrentDirectory().toPath();
             Options.setLastDirectory(lastPath);
+            LastPathStore.setUseSpecDirectory(lastPath);
             file = fChooser.getSelectedFile().toPath();
             
             compile(file);
@@ -1189,6 +1192,7 @@ public class MainWindow extends JFrame {
             if (system != null) {
             	Options.getRecentFiles().push(f.toString());
             	Options.setLastDirectory(f.getParent());
+                LastPathStore.setUseSpecDirectory(f.getParent());
             	return true;
             } else {
             	return false;
