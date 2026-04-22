@@ -10,3 +10,18 @@ bin
 
 # Build folders
 target
+spec_latex
+.DS_Store
+
+# Local Maven repository (project-scoped, venv-like)
+.m2/
+
+# Local editor settings
+.vscode/
+.local/last-paths.properties
+
+# Personal/local artifacts
+main.pdf
+RUN.md
+SEMANTIC_DIRECTION.md
+.mvn/maven.config

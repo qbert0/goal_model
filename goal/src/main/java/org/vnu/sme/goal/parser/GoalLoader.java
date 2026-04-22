@@ -27,14 +27,14 @@ public class GoalLoader {
 
    public boolean run() {
        try {
-        //    this.goalModel = 
-           parseGoalFile();
+        //    this.goalModel =
+           boolean success = parseGoalFile();
 
            // Nếu hiện tại chưa có view thì chỉ cần parse xong return true cũng được.
            // Nhưng ở đây tôi viết luôn phần mở view để bám phong cách FrslLoader.
         //    openGoalDiagramView(this.goalModel);
 
-           return true;
+           return success;
        } catch (MSystemException | FileNotFoundException e) {
            e.printStackTrace();
            logWriter.println("[GoalLoader] Error: " + e.getMessage());
@@ -50,9 +50,9 @@ public class GoalLoader {
    /**
     * Hàm chuyên trách parse file .goal
     */
-   private void parseGoalFile() throws MSystemException, FileNotFoundException {
+   private boolean parseGoalFile() throws MSystemException, FileNotFoundException {
        logWriter.println("Compiling GoalModel ...");
-       GOALCompiler.compileSpecification(
+       return GOALCompiler.compileSpecification(
                goalFileName,
                logWriter,
                session.system().model()

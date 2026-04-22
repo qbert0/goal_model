@@ -1,0 +1,7 @@
+istar SymbolFailDuplicate
+
+agent DeliverySystem {
+    task AssignDriver { }
+    task AssignDriver { }
+}
+

@@ -13,26 +13,24 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.tzi.use.parser.ParseErrorHandler;
 import org.tzi.use.uml.mm.MModel;
 import org.tzi.use.uml.sys.MSystemException;
 
-// Import các class Visitor của bạn (Cần mở comment và đảm bảo import đúng)
-// import org.vnu.sme.goal.ast.GoalModelCS;
-// import org.vnu.sme.goal.mm.GoalModel;
+import org.vnu.sme.goal.ast.GoalModelCS;
+import org.vnu.sme.goal.parser.debug.GoalAstPrinter;
+import org.vnu.sme.goal.parser.semantic.pipeline.GoalSemanticPipelineSkeleton;
+import org.vnu.sme.goal.parser.semantic.symbols.SemanticIssue;
 
 public class GOALCompiler {
 
     private GOALCompiler() {
     }
 
-    public static void compileSpecification(String inName, PrintWriter err, MModel model)
+    public static boolean compileSpecification(String inName, PrintWriter err, MModel model)
             throws MSystemException, FileNotFoundException {
 
         InputStream inStream = new FileInputStream(inName);
-        ParseErrorHandler errHandler = new ParseErrorHandler(inName, err);
-        
+
         try {
             // 1. Nạp mã nguồn
             CharStream input = CharStreams.fromStream(inStream);
@@ -58,30 +56,36 @@ public class GOALCompiler {
             // 3. BẮT BUỘC: Gọi Start Rule để thực thi việc Parse
             // =======================================================
             // Lưu ý: Tên hàm goalModel() phụ thuộc vào rule gốc cùng tên trong file GOAL.g4 của bạn
-            ParseTree tree = parser.goalModel(); 
-
-            // =======================================================
-            // 4. Duyệt cây cú pháp (Visitor hoặc Listener)
-            // =======================================================
-            /* * TODO: Mở comment đoạn này sau khi bạn đã viết xong lớp Visitor/Listener
-             * Ví dụ dùng Visitor giống đoạn code cũ của bạn:
-             * * GoalModelVisitor visitor = new GoalModelVisitor();
-             * GoalModelCS goalModelCS = (GoalModelCS) visitor.visit(tree);
-             * * if (errHandler.errorCount() == 0) {
-             * Context ctx = new Context(inName, err, null, new GoalModelFactory());
-             * ctx.setModel(model);
-             * return goalModelCS.visitPreOrder(ctx);
-             * }
-             */
+            GOALParser.GoalModelContext root = parser.goalModel();
+            if (Boolean.getBoolean("goal.dump.parsetree")) {
+                err.println("=== GOAL Parse Tree ===");
+                err.println(root.toStringTree(parser));
+            }
+            GoalModelCS ast = GoalModelBuildingVisitor.build(root);
+            if (Boolean.getBoolean("goal.dump.ast")) {
+                err.println("=== GOAL AST Dump ===");
+                err.println(GoalAstPrinter.dump(ast));
+            }
+            java.util.List<SemanticIssue> issues = new GoalSemanticPipelineSkeleton().run(ast, model, err);
+            if (!issues.isEmpty()) {
+                err.println("[GOAL] compilation failed with " + issues.size() + " semantic issue(s).");
+                return false;
+            }
+            err.println("[GOAL] model=\"" + ast.getfName().getText() + "\" actors=" + ast.getActorDeclsCS().size()
+                    + " dependencies=" + ast.getRelationDeclsCS().size());
+            return true;
 
         } catch (ParseCancellationException e) {
             // Bắt lỗi cú pháp (thiếu ngoặc, sai chữ) và in ra màn hình
             err.println("BIÊN DỊCH THẤT BẠI: " + e.getMessage());
+            return false;
         } catch (IOException e) {
             err.println("Lỗi đọc file: " + e.getMessage());
+            return false;
         } catch (Exception e) {
             err.println("Lỗi hệ thống: " + e.getMessage());
             e.printStackTrace();
+            return false;
         } finally {
             err.flush();
         }
