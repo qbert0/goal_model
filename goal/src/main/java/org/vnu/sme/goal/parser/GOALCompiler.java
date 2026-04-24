@@ -31,12 +31,12 @@ public class GOALCompiler {
             CharStream input = CharStreams.fromStream(inStream);
             GOALLexer lexer = new GOALLexer(input);
             lexer.removeErrorListeners();
-            lexer.addErrorListener(errorListener());
+            lexer.addErrorListener(errorListener());  // TODO -> tách abstract
 
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             GOALParser parser = new GOALParser(tokenStream);
             parser.removeErrorListeners();
-            parser.addErrorListener(errorListener());
+            parser.addErrorListener(errorListener());// TODO
 
             ParseTree tree = parser.goalModel();
             GoalModelCS ast = (GoalModelCS) new GoalAstBuilder().visit(tree);

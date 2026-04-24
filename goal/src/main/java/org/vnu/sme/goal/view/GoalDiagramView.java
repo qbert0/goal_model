@@ -29,15 +29,14 @@ import org.tzi.use.gui.views.diagrams.elements.edges.EdgeBase;
 import org.tzi.use.uml.mm.MModel;
 import org.vnu.sme.goal.mm.Actor;
 import org.vnu.sme.goal.mm.Agent;
-import org.vnu.sme.goal.mm.ContributionRelation;
+import org.vnu.sme.goal.mm.Contribution;
 import org.vnu.sme.goal.mm.Dependency;
 import org.vnu.sme.goal.mm.Goal;
 import org.vnu.sme.goal.mm.GoalModel;
 import org.vnu.sme.goal.mm.IntentionalElement;
-import org.vnu.sme.goal.mm.QualificationRelation;
 import org.vnu.sme.goal.mm.Quality;
-import org.vnu.sme.goal.mm.RefinementRelation;
-import org.vnu.sme.goal.mm.Relation;
+import org.vnu.sme.goal.mm.Refinement;
+import org.vnu.sme.goal.mm.ConcreteIntentionalElement;
 import org.vnu.sme.goal.mm.Resource;
 import org.vnu.sme.goal.mm.Role;
 import org.vnu.sme.goal.mm.Task;
@@ -222,38 +221,50 @@ public class GoalDiagramView extends DiagramView implements View {
     }
 
     private void createRelationEdges() {
-        for (IntentionalElement element : goalModel.getAllElements()) {
-            PlaceableNode sourceNode = elementNodeMap.get(element);
-            if (sourceNode == null) {
+        for (Contribution contribution : goalModel.getContributions()) {
+            PlaceableNode sourceNode = elementNodeMap.get(contribution.getSource());
+            PlaceableNode targetNode = elementNodeMap.get(contribution.getTarget());
+            if (sourceNode != null && targetNode != null) {
+                EdgeBase edge = new ContributionEdge(sourceNode, targetNode, contribution, this);
+                diagramData.addEdge(edge);
+                fGraph.addEdge(edge);
+            }
+        }
+
+        for (Refinement refinement : goalModel.getRefinements()) {
+            PlaceableNode targetNode = elementNodeMap.get(refinement.getParent());
+            if (targetNode == null) {
                 continue;
             }
-
-            for (Relation relation : element.getOutgoingRelations()) {
-                PlaceableNode targetNode = elementNodeMap.get(relation.getTarget());
-                if (targetNode == null) {
-                    continue;
-                }
-
-                EdgeBase edge = createRelationEdge(relation, sourceNode, targetNode);
-                if (edge != null) {
+            for (org.vnu.sme.goal.mm.GoalTaskElement child : refinement.getChildren()) {
+                PlaceableNode sourceNode = elementNodeMap.get(child);
+                if (sourceNode != null) {
+                    EdgeBase edge = new RefinementEdge(sourceNode, targetNode, refinement, this);
                     diagramData.addEdge(edge);
                     fGraph.addEdge(edge);
                 }
             }
         }
-    }
 
-    private EdgeBase createRelationEdge(Relation relation, PlaceableNode source, PlaceableNode target) {
-        if (relation instanceof RefinementRelation) {
-            return new RefinementEdge(source, target, (RefinementRelation) relation, this);
+        for (IntentionalElement element : goalModel.getAllElements()) {
+            if (!(element instanceof Quality)) {
+                continue;
+            }
+            Quality quality = (Quality) element;
+            PlaceableNode sourceNode = elementNodeMap.get(quality);
+            if (sourceNode == null) {
+                continue;
+            }
+            for (ConcreteIntentionalElement qualified : quality.getQualifiedElements()) {
+                PlaceableNode targetNode = elementNodeMap.get(qualified);
+                if (targetNode != null) {
+                    EdgeBase edge = new QualificationEdge(sourceNode, targetNode,
+                            quality.getName() + "_qualifies_" + qualified.getName(), this);
+                    diagramData.addEdge(edge);
+                    fGraph.addEdge(edge);
+                }
+            }
         }
-        if (relation instanceof ContributionRelation) {
-            return new ContributionEdge(source, target, (ContributionRelation) relation, this);
-        }
-        if (relation instanceof QualificationRelation) {
-            return new QualificationEdge(source, target, (QualificationRelation) relation, this);
-        }
-        return null;
     }
 
     private void createDependencyEdges() {

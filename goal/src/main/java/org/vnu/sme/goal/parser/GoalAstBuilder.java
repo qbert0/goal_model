@@ -80,7 +80,7 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
         if (clause != null) {
             ParserRuleContext child = (ParserRuleContext) clause.getChild(0);
             goal.setGoalType(goalType(child));
-            goal.setOclExpression(expressionText(child));
+            goal.setOclExpression(expression(child));
         }
 
         return goal;
@@ -95,10 +95,10 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
             task.setDescription(unquote(ctx.taskBody().descriptionClause().STRING().getText()));
         }
         if (ctx.taskBody().preClause() != null) {
-            task.setPreExpression(ctx.taskBody().preClause().expression().getText());
+            task.setPreExpression(OclExpressionBuilder.build(ctx.taskBody().preClause().expression()));
         }
         if (ctx.taskBody().postClause() != null) {
-            task.setPostExpression(ctx.taskBody().postClause().expression().getText());
+            task.setPostExpression(OclExpressionBuilder.build(ctx.taskBody().postClause().expression()));
         }
 
         return task;
@@ -165,14 +165,14 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
         return GoalCS.GoalType.ACHIEVE;
     }
 
-    private String expressionText(ParserRuleContext ctx) {
+    private org.vnu.sme.goal.mm.ocl.Expression expression(ParserRuleContext ctx) {
         if (ctx instanceof GOALParser.AchieveClauseContext) {
-            return ((GOALParser.AchieveClauseContext) ctx).expression().getText();
+            return OclExpressionBuilder.build(((GOALParser.AchieveClauseContext) ctx).expression());
         }
         if (ctx instanceof GOALParser.MaintainClauseContext) {
-            return ((GOALParser.MaintainClauseContext) ctx).expression().getText();
+            return OclExpressionBuilder.build(((GOALParser.MaintainClauseContext) ctx).expression());
         }
-        return ((GOALParser.AvoidClauseContext) ctx).expression().getText();
+        return OclExpressionBuilder.build(((GOALParser.AvoidClauseContext) ctx).expression());
     }
 
     private String qualifiedName(GOALParser.QualifiedNameContext ctx) {

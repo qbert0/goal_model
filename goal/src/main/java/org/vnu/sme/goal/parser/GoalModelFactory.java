@@ -1,6 +1,8 @@
 package org.vnu.sme.goal.parser;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.antlr.v4.runtime.Token;
@@ -15,27 +17,36 @@ import org.vnu.sme.goal.ast.QualityCS;
 import org.vnu.sme.goal.ast.ResourceCS;
 import org.vnu.sme.goal.ast.RoleCS;
 import org.vnu.sme.goal.ast.TaskCS;
+import org.vnu.sme.goal.mm.Achieve;
 import org.vnu.sme.goal.mm.Actor;
 import org.vnu.sme.goal.mm.Agent;
-import org.vnu.sme.goal.mm.ContributionRelation;
+import org.vnu.sme.goal.mm.AndRefinement;
+import org.vnu.sme.goal.mm.Avoid;
+import org.vnu.sme.goal.mm.ConcreteIntentionalElement;
+import org.vnu.sme.goal.mm.Contribution;
+import org.vnu.sme.goal.mm.ContributionType;
 import org.vnu.sme.goal.mm.Dependency;
 import org.vnu.sme.goal.mm.Goal;
 import org.vnu.sme.goal.mm.GoalModel;
+import org.vnu.sme.goal.mm.GoalTaskElement;
 import org.vnu.sme.goal.mm.IntentionalElement;
-import org.vnu.sme.goal.mm.QualificationRelation;
+import org.vnu.sme.goal.mm.Maintain;
+import org.vnu.sme.goal.mm.OrRefinement;
+import org.vnu.sme.goal.mm.Post;
+import org.vnu.sme.goal.mm.Pre;
 import org.vnu.sme.goal.mm.Quality;
-import org.vnu.sme.goal.mm.RefinementRelation;
-import org.vnu.sme.goal.mm.Relation;
+import org.vnu.sme.goal.mm.Refinement;
 import org.vnu.sme.goal.mm.Resource;
 import org.vnu.sme.goal.mm.Role;
-import org.vnu.sme.goal.mm.SpecificActor;
 import org.vnu.sme.goal.mm.Task;
+import org.vnu.sme.goal.mm.ocl.Expression;
 
 public class GoalModelFactory {
     private final Map<ActorDeclCS, Actor> actorMap = new HashMap<>();
     private final Map<IntentionalElementCS, IntentionalElement> elementMap = new HashMap<>();
     private final Map<String, Actor> actorsByName = new HashMap<>();
     private final Map<String, IntentionalElement> elementsByName = new HashMap<>();
+    private final List<PendingRelation> pendingRelations = new ArrayList<>();
 
     public GoalModel create(GoalModelCS cs) {
         GoalModel model = new GoalModel(cs.getfName().getText());
@@ -49,14 +60,14 @@ public class GoalModelFactory {
 
         for (ActorDeclCS actorCS : cs.getActorDeclsCS()) {
             Actor actor = actorMap.get(actorCS);
-            actor.setParent(resolveActor(actorCS.getParentRef()));
-            actor.setInstanceOf(resolveActor(actorCS.getInstanceOfRef()));
+            actor.setIsAActor(resolveActor(actorCS.getParentRef()));
+            actor.setParticipatesInActor(resolveActor(actorCS.getInstanceOfRef()));
 
             for (IntentionalElementCS elementCS : actorCS.getIntentionalElements()) {
                 IntentionalElement element = createElement(elementCS);
-                element.setOwner(actor);
-                actor.addElement(element);
+                actor.addWantedElement(element);
                 elementMap.put(elementCS, element);
+                model.registerElement(actor, element);
                 registerElement(actor, element);
             }
 
@@ -65,12 +76,14 @@ public class GoalModelFactory {
 
         for (ActorDeclCS actorCS : cs.getActorDeclsCS()) {
             for (IntentionalElementCS elementCS : actorCS.getIntentionalElements()) {
-                createRelations(elementMap.get(elementCS), elementCS);
+                collectPendingRelations(elementMap.get(elementCS), elementCS);
             }
         }
 
+        materializePendingRelations();
+
         for (DependencyCS dependencyCS : cs.getDependencyDeclsCS()) {
-            Dependency dependency = createDependency(dependencyCS);
+            Dependency dependency = createDependency(dependencyCS, model);
             if (dependency != null) {
                 model.addDependency(dependency);
             }
@@ -88,32 +101,61 @@ public class GoalModelFactory {
             return new Role(name);
         }
         if (cs instanceof ActorCS) {
-            return new SpecificActor(name);
+            return new Actor(name);
         }
         throw new IllegalArgumentException("Unsupported actor type: " + cs.getClass().getSimpleName());
     }
 
     private IntentionalElement createElement(IntentionalElementCS cs) {
-        String name = cs.getfName().getText();
         IntentionalElement element;
+        String name = cs.getfName().getText();
 
         if (cs instanceof GoalCS) {
-            Goal goal = new Goal(name);
             GoalCS goalCS = (GoalCS) cs;
+            Goal goal = new Goal(name);
+            goal.setDescription(goalCS.getDescription());
             if (goalCS.getGoalType() != null) {
-                goal.setGoalType(Goal.GoalType.valueOf(goalCS.getGoalType().name()));
+                switch (goalCS.getGoalType()) {
+                    case ACHIEVE:
+                        goal.setGoalClause(new Achieve());
+                        break;
+                    case MAINTAIN:
+                        goal.setGoalClause(new Maintain());
+                        break;
+                    case AVOID:
+                        goal.setGoalClause(new Avoid());
+                        break;
+                    default:
+                        break;
+                }
             }
-            goal.setOclExpression(goalCS.getOclExpression());
+            if (goalCS.getOclExpression() != null && goal.getGoalClause() != null) {
+                goal.getGoalClause().addExpression(goalCS.getOclExpression());
+            }
             element = goal;
         } else if (cs instanceof TaskCS) {
+            TaskCS taskCS = (TaskCS) cs;
             Task task = new Task(name);
-            task.setPreExpression(((TaskCS) cs).getPreExpression());
-            task.setPostExpression(((TaskCS) cs).getPostExpression());
+            task.setDescription(taskCS.getDescription());
+            if (taskCS.getPreExpression() != null) {
+                Pre pre = new Pre();
+                pre.addExpression(taskCS.getPreExpression());
+                task.setPre(pre);
+            }
+            if (taskCS.getPostExpression() != null) {
+                Post post = new Post();
+                post.addExpression(taskCS.getPostExpression());
+                task.setPost(post);
+            }
             element = task;
         } else if (cs instanceof QualityCS) {
-            element = new Quality(name);
+            Quality quality = new Quality(name);
+            quality.setDescription(cs.getDescription());
+            element = quality;
         } else if (cs instanceof ResourceCS) {
-            element = new Resource(name);
+            Resource resource = new Resource(name);
+            resource.setDescription(cs.getDescription());
+            element = resource;
         } else {
             throw new IllegalArgumentException("Unsupported intentional element type: " + cs.getClass().getSimpleName());
         }
@@ -122,64 +164,78 @@ public class GoalModelFactory {
         return element;
     }
 
-    private void createRelations(IntentionalElement source, IntentionalElementCS sourceCS) {
-        int index = 1;
+    private void collectPendingRelations(IntentionalElement source, IntentionalElementCS sourceCS) {
         for (IntentionalElementCS.RelationRef relationRef : sourceCS.getRelations()) {
-            IntentionalElement target = resolveElement(relationRef.getTargetRef().getText());
+            pendingRelations.add(new PendingRelation(source, relationRef.getTargetRef().getText(), relationRef.getRelOp().getText()));
+        }
+    }
+
+    private void materializePendingRelations() {
+        Map<String, Refinement> refinementGroups = new HashMap<>();
+
+        for (PendingRelation pending : pendingRelations) {
+            IntentionalElement target = resolveElement(pending.targetName);
             if (target == null) {
-                throw new IllegalArgumentException("Unknown relation target: " + relationRef.getTargetRef().getText());
+                throw new IllegalArgumentException("Unknown relation target: " + pending.targetName);
             }
 
-            Relation relation = createRelation(source.getName() + "_rel_" + index++, relationRef.getRelOp().getText());
-            relation.setSource(source);
-            relation.setTarget(target);
-            source.addOutgoingRelation(relation);
-            target.addIncomingRelation(relation);
+            switch (pending.operator) {
+                case "&>":
+                case "|>":
+                    if (!(pending.source instanceof GoalTaskElement) || !(target instanceof GoalTaskElement)) {
+                        throw new IllegalArgumentException("Refinement requires Goal/Task elements: " + pending.source.getName() + " -> " + target.getName());
+                    }
+                    String key = pending.operator + "::" + target.getName();
+                    Refinement refinement = refinementGroups.get(key);
+                    if (refinement == null) {
+                        refinement = "&>".equals(pending.operator)
+                                ? new AndRefinement(target.getName() + "_and_refinement")
+                                : new OrRefinement(target.getName() + "_or_refinement");
+                        refinement.setParent((GoalTaskElement) target);
+                        refinementGroups.put(key, refinement);
+                    }
+                    refinement.addChild((GoalTaskElement) pending.source);
+                    break;
+                case "=>":
+                    if (!(pending.source instanceof Quality) || !(target instanceof ConcreteIntentionalElement)) {
+                        throw new IllegalArgumentException("Qualification requires Quality -> ConcreteIntentionalElement: "
+                                + pending.source.getName() + " -> " + target.getName());
+                    }
+                    ((Quality) pending.source).addQualifiedElement((ConcreteIntentionalElement) target);
+                    break;
+                case "<>":
+                    if (!(pending.source instanceof Resource) || !(target instanceof Task)) {
+                        throw new IllegalArgumentException("Needed-by requires Resource -> Task: "
+                                + pending.source.getName() + " -> " + target.getName());
+                    }
+                    ((Resource) pending.source).addNeededByTask((Task) target);
+                    break;
+                default:
+                    Contribution contribution = new Contribution(pending.source.getName() + "_contributes_" + target.getName());
+                    contribution.setContributionType(contributionType(pending.operator));
+                    pending.source.addOutgoingContribution(contribution);
+                    target.addIncomingContribution(contribution);
+                    break;
+            }
         }
     }
 
-    private Relation createRelation(String name, String operator) {
+    private ContributionType contributionType(String operator) {
         switch (operator) {
-            case "&>":
-            case "|>":
-                RefinementRelation refinement = new RefinementRelation(name);
-                refinement.setRefinementType("&>".equals(operator)
-                        ? RefinementRelation.RefinementType.AND
-                        : RefinementRelation.RefinementType.OR);
-                return refinement;
             case "++>":
+                return ContributionType.MAKE;
             case "+>":
+                return ContributionType.HELP;
             case "->":
+                return ContributionType.HURT;
             case "-->":
-            case "<>":
-                ContributionRelation contribution = new ContributionRelation(name);
-                contribution.setContributionType(contributionType(operator));
-                return contribution;
-            case "=>":
-                return new QualificationRelation(name);
+                return ContributionType.BREAK;
             default:
-                throw new IllegalArgumentException("Unsupported relation operator: " + operator);
+                return ContributionType.UNKNOWN;
         }
     }
 
-    private ContributionRelation.ContributionType contributionType(String operator) {
-        switch (operator) {
-            case "++>":
-                return ContributionRelation.ContributionType.MAKE;
-            case "+>":
-                return ContributionRelation.ContributionType.HELP;
-            case "->":
-                return ContributionRelation.ContributionType.HURT;
-            case "-->":
-                return ContributionRelation.ContributionType.BREAK;
-            case "<>":
-                return ContributionRelation.ContributionType.UNKNOWN;
-            default:
-                return ContributionRelation.ContributionType.UNKNOWN;
-        }
-    }
-
-    private Dependency createDependency(DependencyCS cs) {
+    private Dependency createDependency(DependencyCS cs, GoalModel model) {
         Actor depender = resolveActor(cs.getDependerRef());
         Actor dependee = resolveActor(cs.getDependeeRef());
         IntentionalElement dependum = createElement(cs.getDependum());
@@ -188,15 +244,15 @@ public class GoalModelFactory {
             throw new IllegalArgumentException("Unknown dependency actor in " + cs.getfName().getText());
         }
 
-        dependum.setOwner(dependee);
-        dependee.addElement(dependum);
-        registerElement(dependee, dependum);
-
         Dependency dependency = new Dependency(cs.getfName().getText());
         dependency.setDescription(cs.getDescription());
         dependency.setDepender(depender);
         dependency.setDependee(dependee);
-        dependency.setDependum(dependum);
+        dependency.setDependerElement(resolveQualifiedElement(cs.getDependerRef()));
+        dependency.setDependeeElement(resolveQualifiedElement(cs.getDependeeRef()));
+        dependency.setDependumElement(dependum);
+        model.registerElement(null, dependum);
+        registerElement(null, dependum);
         return dependency;
     }
 
@@ -212,12 +268,33 @@ public class GoalModelFactory {
         return actorsByName.get(dot >= 0 ? name.substring(0, dot) : name);
     }
 
+    private IntentionalElement resolveQualifiedElement(String name) {
+        return name == null || name.indexOf('.') < 0 ? null : elementsByName.get(name);
+    }
+
     private IntentionalElement resolveElement(String name) {
         return elementsByName.get(name);
     }
 
     private void registerElement(Actor owner, IntentionalElement element) {
-        elementsByName.put(owner.getName() + "." + element.getName(), element);
+        if (element == null) {
+            return;
+        }
+        if (owner != null) {
+            elementsByName.put(owner.getName() + "." + element.getName(), element);
+        }
         elementsByName.putIfAbsent(element.getName(), element);
+    }
+
+    private static final class PendingRelation {
+        private final IntentionalElement source;
+        private final String targetName;
+        private final String operator;
+
+        private PendingRelation(IntentionalElement source, String targetName, String operator) {
+            this.source = source;
+            this.targetName = targetName;
+            this.operator = operator;
+        }
     }
 }

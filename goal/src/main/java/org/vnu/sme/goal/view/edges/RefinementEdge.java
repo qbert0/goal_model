@@ -13,13 +13,13 @@ import org.tzi.use.gui.views.diagrams.elements.EdgeProperty;
 import org.tzi.use.gui.views.diagrams.elements.PlaceableNode;
 import org.tzi.use.gui.views.diagrams.elements.edges.EdgeBase;
 import org.tzi.use.gui.views.diagrams.waypoints.WayPoint;
-import org.vnu.sme.goal.mm.RefinementRelation;
+import org.vnu.sme.goal.mm.Refinement;
 
 public class RefinementEdge extends EdgeBase {
-    private RefinementRelation fRelation;
+    private final Refinement fRelation;
     
     public RefinementEdge(PlaceableNode source, PlaceableNode target, 
-                          RefinementRelation relation, DiagramView diagram) {
+                          Refinement relation, DiagramView diagram) {
         super(source, target, relation.getName(), diagram.getOptions(), true);
         this.fRelation = relation;
     }
@@ -59,8 +59,8 @@ public class RefinementEdge extends EdgeBase {
                 drawRefinementKind(g, p1, p2);
                 
                 // Vẽ nhãn loại refinement (AND/OR)
-                String label = fRelation.getRefinementType() == 
-                    RefinementRelation.RefinementType.AND ? "AND" : "OR";
+                String label = fRelation.getRefinementType() ==
+                    Refinement.RefinementType.AND ? "AND" : "OR";
                 
                 int xCenter = (int) (p1.getX() + p2.getX()) / 2;
                 int yCenter = (int) (p1.getY() + p2.getY()) / 2;

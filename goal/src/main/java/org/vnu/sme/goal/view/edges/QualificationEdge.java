@@ -13,15 +13,13 @@ import org.tzi.use.gui.views.diagrams.elements.EdgeProperty;
 import org.tzi.use.gui.views.diagrams.elements.PlaceableNode;
 import org.tzi.use.gui.views.diagrams.elements.edges.EdgeBase;
 import org.tzi.use.gui.views.diagrams.waypoints.WayPoint;
-import org.vnu.sme.goal.mm.QualificationRelation;
-
 public class QualificationEdge extends EdgeBase {
-    private QualificationRelation fRelation;
+    private final String edgeId;
     
     public QualificationEdge(PlaceableNode source, PlaceableNode target,
-                             QualificationRelation relation, DiagramView diagram) {
-        super(source, target, relation.getName(), diagram.getOptions(), true);
-        this.fRelation = relation;
+                             String edgeId, DiagramView diagram) {
+        super(source, target, edgeId, diagram.getOptions(), true);
+        this.edgeId = edgeId;
     }
     
     @Override
@@ -124,6 +122,6 @@ public class QualificationEdge extends EdgeBase {
     
     @Override
     protected String getIdInternal() {
-        return fRelation.getName();
+        return edgeId;
     }
 }

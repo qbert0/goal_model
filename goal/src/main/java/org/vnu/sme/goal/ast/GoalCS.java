@@ -1,6 +1,7 @@
 package org.vnu.sme.goal.ast;
 
 import org.antlr.v4.runtime.Token;
+import org.vnu.sme.goal.mm.ocl.Expression;
 
 public class GoalCS extends IntentionalElementCS {
 
@@ -11,7 +12,7 @@ public class GoalCS extends IntentionalElementCS {
     }
 
     private GoalType goalType;
-    private String oclExpression;
+    private Expression oclExpression;
 
     public GoalCS(Token fName) {
         super(fName);
@@ -25,11 +26,11 @@ public class GoalCS extends IntentionalElementCS {
         this.goalType = goalType;
     }
 
-    public String getOclExpression() {
+    public Expression getOclExpression() {
         return oclExpression;
     }
 
-    public void setOclExpression(String oclExpression) {
+    public void setOclExpression(Expression oclExpression) {
         this.oclExpression = oclExpression;
     }
 }

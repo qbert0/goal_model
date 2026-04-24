@@ -14,13 +14,13 @@ import org.tzi.use.gui.views.diagrams.elements.EdgeProperty;
 import org.tzi.use.gui.views.diagrams.elements.PlaceableNode;
 import org.tzi.use.gui.views.diagrams.elements.edges.EdgeBase;
 import org.tzi.use.gui.views.diagrams.waypoints.WayPoint;
-import org.vnu.sme.goal.mm.ContributionRelation;
+import org.vnu.sme.goal.mm.Contribution;
 
 public class ContributionEdge extends EdgeBase {
-    private ContributionRelation fRelation;
+    private final Contribution fRelation;
     
     public ContributionEdge(PlaceableNode source, PlaceableNode target,
-                            ContributionRelation relation, DiagramView diagram) {
+                            Contribution relation, DiagramView diagram) {
         super(source, target, relation.getName(), diagram.getOptions(), true);
         this.fRelation = relation;
     }
@@ -114,7 +114,7 @@ public class ContributionEdge extends EdgeBase {
         
         try {
             // Vẽ đường đứt nét cho contribution
-            boolean isDashed = (fRelation.getContributionType() == ContributionRelation.ContributionType.UNKNOWN);
+            boolean isDashed = (fRelation.getContributionType() == org.vnu.sme.goal.mm.ContributionType.UNKNOWN);
             DirectedEdgeFactory.drawDirectedEdge(g, p1.x, p1.y, p2.x, p2.y, isDashed);
         } catch (Exception ex) {
             ex.printStackTrace();
