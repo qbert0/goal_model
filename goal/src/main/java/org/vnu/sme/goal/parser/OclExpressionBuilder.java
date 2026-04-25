@@ -33,8 +33,9 @@ final class OclExpressionBuilder {
     private static Expression buildImplies(GOALParser.ImpliesExprContext ctx) {
         Expression current = buildOr(ctx.orExpr(0));
         for (int i = 1; i < ctx.orExpr().size(); i++) {
-            current = new BinaryExp(sliceText(ctx, current, ctx.orExpr(i).getText()), BinaryExp.Operator.IMPLIES,
-                    current, buildOr(ctx.orExpr(i)));
+            Expression right = buildOr(ctx.orExpr(i));
+            current = new BinaryExp(binaryText(current, "implies", right), BinaryExp.Operator.IMPLIES,
+                    current, right);
         }
         return current;
     }
@@ -42,8 +43,9 @@ final class OclExpressionBuilder {
     private static Expression buildOr(GOALParser.OrExprContext ctx) {
         Expression current = buildAnd(ctx.andExpr(0));
         for (int i = 1; i < ctx.andExpr().size(); i++) {
-            current = new BinaryExp(sliceText(ctx, current, ctx.andExpr(i).getText()), BinaryExp.Operator.OR,
-                    current, buildAnd(ctx.andExpr(i)));
+            Expression right = buildAnd(ctx.andExpr(i));
+            current = new BinaryExp(binaryText(current, "or", right), BinaryExp.Operator.OR,
+                    current, right);
         }
         return current;
     }
@@ -51,8 +53,9 @@ final class OclExpressionBuilder {
     private static Expression buildAnd(GOALParser.AndExprContext ctx) {
         Expression current = buildEquality(ctx.equalityExpr(0));
         for (int i = 1; i < ctx.equalityExpr().size(); i++) {
-            current = new BinaryExp(sliceText(ctx, current, ctx.equalityExpr(i).getText()), BinaryExp.Operator.AND,
-                    current, buildEquality(ctx.equalityExpr(i)));
+            Expression right = buildEquality(ctx.equalityExpr(i));
+            current = new BinaryExp(binaryText(current, "and", right), BinaryExp.Operator.AND,
+                    current, right);
         }
         return current;
     }
@@ -62,8 +65,9 @@ final class OclExpressionBuilder {
         for (int i = 1; i < ctx.relationalExpr().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
             BinaryExp.Operator mapped = "=".equals(operator.getText()) ? BinaryExp.Operator.EQUALS : BinaryExp.Operator.NOT_EQUALS;
-            current = new BinaryExp(sliceText(ctx, current, ctx.relationalExpr(i).getText()), mapped,
-                    current, buildRelational(ctx.relationalExpr(i)));
+            Expression right = buildRelational(ctx.relationalExpr(i));
+            current = new BinaryExp(binaryText(current, operator.getText(), right), mapped,
+                    current, right);
         }
         return current;
     }
@@ -72,8 +76,9 @@ final class OclExpressionBuilder {
         Expression current = buildAdditive(ctx.additiveExpr(0));
         for (int i = 1; i < ctx.additiveExpr().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
-            current = new BinaryExp(sliceText(ctx, current, ctx.additiveExpr(i).getText()), mapRelational(operator),
-                    current, buildAdditive(ctx.additiveExpr(i)));
+            Expression right = buildAdditive(ctx.additiveExpr(i));
+            current = new BinaryExp(binaryText(current, operator.getText(), right), mapRelational(operator),
+                    current, right);
         }
         return current;
     }
@@ -92,8 +97,9 @@ final class OclExpressionBuilder {
         for (int i = 1; i < ctx.multiplicativeExpr().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
             BinaryExp.Operator mapped = "+".equals(operator.getText()) ? BinaryExp.Operator.ADD : BinaryExp.Operator.SUBTRACT;
-            current = new BinaryExp(sliceText(ctx, current, ctx.multiplicativeExpr(i).getText()), mapped,
-                    current, buildMultiplicative(ctx.multiplicativeExpr(i)));
+            Expression right = buildMultiplicative(ctx.multiplicativeExpr(i));
+            current = new BinaryExp(binaryText(current, operator.getText(), right), mapped,
+                    current, right);
         }
         return current;
     }
@@ -103,8 +109,9 @@ final class OclExpressionBuilder {
         for (int i = 1; i < ctx.unaryExpr().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
             BinaryExp.Operator mapped = "*".equals(operator.getText()) ? BinaryExp.Operator.MULTIPLY : BinaryExp.Operator.DIVIDE;
-            current = new BinaryExp(sliceText(ctx, current, ctx.unaryExpr(i).getText()), mapped,
-                    current, buildUnary(ctx.unaryExpr(i)));
+            Expression right = buildUnary(ctx.unaryExpr(i));
+            current = new BinaryExp(binaryText(current, operator.getText(), right), mapped,
+                    current, right);
         }
         return current;
     }
@@ -240,7 +247,7 @@ final class OclExpressionBuilder {
         return source.getText() + suffix.getText();
     }
 
-    private static String sliceText(org.antlr.v4.runtime.ParserRuleContext parent, Expression left, String rightText) {
-        return left.getText() + parent.getText().substring(left.getText().length(), parent.getText().length() - rightText.length()) + rightText;
+    private static String binaryText(Expression left, String operator, Expression right) {
+        return left.getText() + operator + right.getText();
     }
 }

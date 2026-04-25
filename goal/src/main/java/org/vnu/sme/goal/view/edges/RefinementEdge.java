@@ -17,11 +17,13 @@ import org.vnu.sme.goal.mm.Refinement;
 
 public class RefinementEdge extends EdgeBase {
     private final Refinement fRelation;
+    private final String edgeId;
     
     public RefinementEdge(PlaceableNode source, PlaceableNode target, 
                           Refinement relation, DiagramView diagram) {
         super(source, target, relation.getName(), diagram.getOptions(), true);
         this.fRelation = relation;
+        this.edgeId = relation.getName() + "::" + source.name() + "->" + target.name();
     }
     
     @Override
@@ -121,6 +123,6 @@ public class RefinementEdge extends EdgeBase {
     
     @Override
     protected String getIdInternal() {
-        return fRelation.getName();
+        return edgeId;
     }
 }
