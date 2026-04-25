@@ -13,6 +13,7 @@ import org.vnu.sme.goal.ast.DependencyCS;
 import org.vnu.sme.goal.ast.GoalCS;
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.ast.IntentionalElementCS;
+import org.vnu.sme.goal.ast.OutgoingLink;
 import org.vnu.sme.goal.ast.QualityCS;
 import org.vnu.sme.goal.ast.ResourceCS;
 import org.vnu.sme.goal.ast.RoleCS;
@@ -165,8 +166,8 @@ public class GoalModelFactory {
     }
 
     private void collectPendingRelations(IntentionalElement source, IntentionalElementCS sourceCS) {
-        for (IntentionalElementCS.RelationRef relationRef : sourceCS.getRelations()) {
-            pendingRelations.add(new PendingRelation(source, relationRef.getTargetRef().getText(), relationRef.getRelOp().getText()));
+        for (OutgoingLink link : sourceCS.getOutgoingLinks()) {
+            pendingRelations.add(new PendingRelation(source, link.target().getText(), operatorText(link.kind())));
         }
     }
 
@@ -235,9 +236,22 @@ public class GoalModelFactory {
         }
     }
 
+    private String operatorText(OutgoingLink.Kind kind) {
+        return switch (kind) {
+            case REFINE_AND -> "&>";
+            case REFINE_OR -> "|>";
+            case CONTRIB_MAKE -> "++>";
+            case CONTRIB_HELP -> "+>";
+            case CONTRIB_HURT -> "->";
+            case CONTRIB_BREAK -> "-->";
+            case QUALIFY -> "=>";
+            case NEEDED_BY -> "<>";
+        };
+    }
+
     private Dependency createDependency(DependencyCS cs, GoalModel model) {
-        Actor depender = resolveActor(cs.getDependerRef());
-        Actor dependee = resolveActor(cs.getDependeeRef());
+        Actor depender = resolveActor(cs.getDependerQualifiedName());
+        Actor dependee = resolveActor(cs.getDependeeQualifiedName());
         IntentionalElement dependum = createElement(cs.getDependum());
 
         if (depender == null || dependee == null) {
@@ -248,8 +262,8 @@ public class GoalModelFactory {
         dependency.setDescription(cs.getDescription());
         dependency.setDepender(depender);
         dependency.setDependee(dependee);
-        dependency.setDependerElement(resolveQualifiedElement(cs.getDependerRef()));
-        dependency.setDependeeElement(resolveQualifiedElement(cs.getDependeeRef()));
+        dependency.setDependerElement(resolveQualifiedElement(cs.getDependerQualifiedName()));
+        dependency.setDependeeElement(resolveQualifiedElement(cs.getDependeeQualifiedName()));
         dependency.setDependumElement(dependum);
         model.registerElement(null, dependum);
         registerElement(null, dependum);

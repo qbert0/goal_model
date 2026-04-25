@@ -11,6 +11,7 @@ import org.vnu.sme.goal.ast.DependencyCS;
 import org.vnu.sme.goal.ast.GoalCS;
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.ast.IntentionalElementCS;
+import org.vnu.sme.goal.ast.OutgoingLink;
 import org.vnu.sme.goal.ast.QualityCS;
 import org.vnu.sme.goal.ast.ResourceCS;
 import org.vnu.sme.goal.ast.RoleCS;
@@ -142,8 +143,8 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
             return;
         }
         for (GOALParser.RelationContext relation : relationList.relation()) {
-            element.addRelation(new IntentionalElementCS.RelationRef(
-                    relation.relOp().getStart(),
+            element.addOutgoingLink(new OutgoingLink(
+                    mapKind(relation.relOp().getStart().getText()),
                     relation.IDENT().getSymbol()));
         }
     }
@@ -177,6 +178,20 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
 
     private String qualifiedName(GOALParser.QualifiedNameContext ctx) {
         return ctx.IDENT().stream().map(Object::toString).collect(Collectors.joining("."));
+    }
+
+    private OutgoingLink.Kind mapKind(String operatorText) {
+        return switch (operatorText) {
+            case "&>" -> OutgoingLink.Kind.REFINE_AND;
+            case "|>" -> OutgoingLink.Kind.REFINE_OR;
+            case "++>" -> OutgoingLink.Kind.CONTRIB_MAKE;
+            case "+>" -> OutgoingLink.Kind.CONTRIB_HELP;
+            case "->" -> OutgoingLink.Kind.CONTRIB_HURT;
+            case "-->" -> OutgoingLink.Kind.CONTRIB_BREAK;
+            case "=>" -> OutgoingLink.Kind.QUALIFY;
+            case "<>" -> OutgoingLink.Kind.NEEDED_BY;
+            default -> throw new IllegalArgumentException("Unknown relation operator: " + operatorText);
+        };
     }
 
     private String unquote(String text) {

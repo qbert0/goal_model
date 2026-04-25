@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.util.List;
 
 import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStream;
@@ -18,6 +19,9 @@ import org.tzi.use.uml.mm.MModel;
 import org.tzi.use.uml.sys.MSystemException;
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.mm.GoalModel;
+import org.vnu.sme.goal.parser.debug.GoalAstPrinter;
+import org.vnu.sme.goal.parser.semantic.pipeline.GoalSemanticPipelineSkeleton;
+import org.vnu.sme.goal.parser.semantic.symbols.SemanticIssue;
 
 public class GOALCompiler {
 
@@ -31,17 +35,28 @@ public class GOALCompiler {
             CharStream input = CharStreams.fromStream(inStream);
             GOALLexer lexer = new GOALLexer(input);
             lexer.removeErrorListeners();
-            lexer.addErrorListener(errorListener());  // TODO -> tách abstract
+            lexer.addErrorListener(errorListener());
 
             CommonTokenStream tokenStream = new CommonTokenStream(lexer);
             GOALParser parser = new GOALParser(tokenStream);
             parser.removeErrorListeners();
-            parser.addErrorListener(errorListener());// TODO
+            parser.addErrorListener(errorListener());
 
             ParseTree tree = parser.goalModel();
-            GoalModelCS ast = (GoalModelCS) new GoalAstBuilder().visit(tree);
-            GoalModel goalModel = new GoalModelFactory().create(ast);
+            GoalModelCS ast = GoalModelBuildingVisitor.build((GOALParser.GoalModelContext) tree);
 
+            if (Boolean.getBoolean("goal.dump.ast")) {
+                err.println("=== GOAL AST Dump ===");
+                err.println(GoalAstPrinter.dump(ast));
+            }
+
+            List<SemanticIssue> issues = new GoalSemanticPipelineSkeleton().run(ast, model, err);
+            if (!issues.isEmpty()) {
+                err.println("[GOAL] compilation failed with " + issues.size() + " semantic issue(s).");
+                return null;
+            }
+
+            GoalModel goalModel = new GoalModelFactory().create(ast);
             err.println("Compiled GoalModel '" + goalModel.getName() + "' with "
                     + goalModel.getActors().size() + " actors and "
                     + goalModel.getDependencies().size() + " dependencies.");

@@ -1,6 +1,7 @@
 package org.vnu.sme.goal.ast;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.antlr.v4.runtime.Token;
@@ -8,44 +9,82 @@ import org.antlr.v4.runtime.Token;
 public abstract class ActorDeclCS extends DescriptionContainerCS {
 
     protected final Token fName;
-    protected Token parentRef;           // Sau COLON
-    protected Token instanceOfRef;       // Sau GT
-    protected List<IntentionalElementCS> intentionalElements;
+    private final List<Token> participatesInRefs = new ArrayList<>();
+    private final List<Token> isARefs = new ArrayList<>();
+    private final List<Token> wantsRefs = new ArrayList<>();
+    private final List<IntentionalElementCS> intentionalElements = new ArrayList<>();
 
-    public ActorDeclCS(Token fName) {
+    protected ActorDeclCS(Token fName) {
         this.fName = fName;
-        this.intentionalElements = new ArrayList<>();
     }
 
     public Token getfName() {
         return fName;
     }
 
-    public Token getParentRef() {
-        return parentRef;
+    public List<Token> getParticipatesInRefs() {
+        return Collections.unmodifiableList(participatesInRefs);
     }
 
-    public void setParentRef(Token parentRef) {
-        this.parentRef = parentRef;
+    public void addParticipatesInRef(Token ref) {
+        if (ref != null) {
+            participatesInRefs.add(ref);
+        }
     }
 
-    public Token getInstanceOfRef() {
-        return instanceOfRef;
+    public List<Token> getIsARefs() {
+        return Collections.unmodifiableList(isARefs);
     }
 
-    public void setInstanceOfRef(Token instanceOfRef) {
-        this.instanceOfRef = instanceOfRef;
+    public void addIsARef(Token ref) {
+        if (ref != null) {
+            isARefs.add(ref);
+        }
+    }
+
+    public List<Token> getWantsRefs() {
+        return Collections.unmodifiableList(wantsRefs);
+    }
+
+    public void addWantsRef(Token ref) {
+        if (ref != null) {
+            wantsRefs.add(ref);
+        }
     }
 
     public List<IntentionalElementCS> getIntentionalElements() {
-        return intentionalElements;
+        return Collections.unmodifiableList(intentionalElements);
     }
 
-    public void setIntentionalElements(List<IntentionalElementCS> intentionalElements) {
-        this.intentionalElements = intentionalElements;
+    public void setIntentionalElements(List<IntentionalElementCS> elements) {
+        intentionalElements.clear();
+        if (elements != null) {
+            intentionalElements.addAll(elements);
+        }
     }
 
     public void addIntentionalElement(IntentionalElementCS element) {
-        this.intentionalElements.add(element);
+        if (element != null) {
+            intentionalElements.add(element);
+        }
+    }
+
+    // Compatibility API for the current GoalModelFactory.
+    public Token getParentRef() {
+        return isARefs.isEmpty() ? null : isARefs.get(0);
+    }
+
+    public void setParentRef(Token parentRef) {
+        isARefs.clear();
+        addIsARef(parentRef);
+    }
+
+    public Token getInstanceOfRef() {
+        return participatesInRefs.isEmpty() ? null : participatesInRefs.get(0);
+    }
+
+    public void setInstanceOfRef(Token instanceOfRef) {
+        participatesInRefs.clear();
+        addParticipatesInRef(instanceOfRef);
     }
 }

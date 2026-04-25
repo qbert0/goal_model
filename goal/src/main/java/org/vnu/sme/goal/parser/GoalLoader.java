@@ -32,9 +32,9 @@ public class GoalLoader {
 
     public boolean run() {
         try {
-            this.goalModel = parseGoalFile();
-            openGoalDiagramView(this.goalModel);
-            return this.goalModel != null;
+            goalModel = parseGoalFile();
+            openGoalDiagramView(goalModel);
+            return goalModel != null;
         } catch (MSystemException | FileNotFoundException e) {
             e.printStackTrace(logWriter);
             logWriter.println("[GoalLoader] Error: " + e.getMessage());
@@ -60,7 +60,7 @@ public class GoalLoader {
             return;
         }
 
-        this.goalDiagramView = new GoalDiagramView(mainWindow, model, session.system().model());
+        goalDiagramView = new GoalDiagramView(mainWindow, model, session.system().model());
 
         ViewFrame frame = new ViewFrame("Goal diagram", goalDiagramView, "ClassDiagram.gif");
         JComponent contentPane = (JComponent) frame.getContentPane();

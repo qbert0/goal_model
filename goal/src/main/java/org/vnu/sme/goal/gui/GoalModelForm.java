@@ -61,6 +61,10 @@ public class GoalModelForm extends ModelFormAbs {
                 if (selected != null) {
                     setSelectedFile(selected);
                     goalFileName.setText(selected.getAbsolutePath());
+                    File parentDir = selected.getParentFile();
+                    if (parentDir != null) {
+                        Options.setLastDirectory(parentDir.toPath());
+                    }
                 }
             }
         });
@@ -120,9 +124,12 @@ public class GoalModelForm extends ModelFormAbs {
             // TODO:
             GoalLoader loader = new GoalLoader(session, getSelectedFile().getAbsolutePath(), logWriter, mainWindow);
             boolean success = loader.run();
-
-            showParseSuccess();
-            close();
+            if (success) {
+                showParseSuccess();
+                close();
+            } else {
+                showParseError("Failed to load GOAL file. See console log for details.");
+            }
 
         } catch (Exception ex) {
             showParseError(ex.getMessage());

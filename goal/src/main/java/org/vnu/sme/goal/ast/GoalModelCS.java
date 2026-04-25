@@ -1,22 +1,24 @@
 package org.vnu.sme.goal.ast;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.Token;
 
 public class GoalModelCS {
 
     private final Token fName;
-    private List<ActorDeclCS> actorDeclsCS;
-    private List<IntentionalElementCS> ieDeclsCS;
-    private List<DependencyCS> dependencyDeclsCS;
+    private final List<ActorDeclCS> actorDeclsCS;
+    private final List<IntentionalElementCS> ieDeclsCS;
+    private final List<RelationCS> relationDeclsCS;
 
     public GoalModelCS(Token fName) {
         this.fName = fName;
         this.actorDeclsCS = new ArrayList<>();
         this.ieDeclsCS = new ArrayList<>();
-        this.dependencyDeclsCS = new ArrayList<>();
+        this.relationDeclsCS = new ArrayList<>();
     }
 
     public Token getfName() {
@@ -24,27 +26,43 @@ public class GoalModelCS {
     }
 
     public List<ActorDeclCS> getActorDeclsCS() {
-        return actorDeclsCS;
+        return Collections.unmodifiableList(actorDeclsCS);
     }
 
     public void setActorDeclsCS(List<ActorDeclCS> actorDeclsCS) {
-        this.actorDeclsCS = actorDeclsCS;
+        this.actorDeclsCS.clear();
+        if (actorDeclsCS != null) {
+            this.actorDeclsCS.addAll(actorDeclsCS);
+        }
     }
 
     public List<IntentionalElementCS> getIeDeclsCS() {
-        return ieDeclsCS;
+        return Collections.unmodifiableList(ieDeclsCS);
     }
 
     public void setIeDeclsCS(List<IntentionalElementCS> ieDeclsCS) {
-        this.ieDeclsCS = ieDeclsCS;
+        this.ieDeclsCS.clear();
+        if (ieDeclsCS != null) {
+            this.ieDeclsCS.addAll(ieDeclsCS);
+        }
+    }
+
+    public List<RelationCS> getRelationDeclsCS() {
+        return Collections.unmodifiableList(relationDeclsCS);
     }
 
     public List<DependencyCS> getDependencyDeclsCS() {
-        return dependencyDeclsCS;
+        return relationDeclsCS.stream()
+                .filter(DependencyCS.class::isInstance)
+                .map(DependencyCS.class::cast)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     public void setDependencyDeclsCS(List<DependencyCS> dependencyDeclsCS) {
-        this.dependencyDeclsCS = dependencyDeclsCS;
+        relationDeclsCS.clear();
+        if (dependencyDeclsCS != null) {
+            relationDeclsCS.addAll(dependencyDeclsCS);
+        }
     }
 
     public void addActorDeclCS(ActorDeclCS actorDeclCS) {
@@ -56,6 +74,12 @@ public class GoalModelCS {
     }
 
     public void addDependencyDeclCS(DependencyCS dependencyDeclCS) {
-        this.dependencyDeclsCS.add(dependencyDeclCS);
+        addRelationDeclCS(dependencyDeclCS);
+    }
+
+    public void addRelationDeclCS(RelationCS relationDeclCS) {
+        if (relationDeclCS != null) {
+            this.relationDeclsCS.add(relationDeclCS);
+        }
     }
 }
