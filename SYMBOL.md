@@ -103,8 +103,10 @@ Một mục quan hệ gắn vào `ElementSymbol` nguồn. Mỗi phần tử có 
 | `name` | `String` | Tên định danh của dependency |
 | `depender` | `ElementSymbol` | Phần tử đang cần sự trợ giúp (đã resolve) |
 | `dependee` | `ElementSymbol` | Phần tử cung cấp sự trợ giúp (đã resolve) |
-| `dependum` | `ElementSymbol` | Phần tử trung gian nội tuyến (`goal`/`task`/`resource`/`quality`) |
+| `dependumTable` | `Map<String, ElementSymbol>` | Bảng các phần tử trung gian nội tuyến — scope riêng của dependency |
 | `sourceLocation` | `Location` | Vị trí trong mã nguồn |
+
+**Scope của dependum:** Các element khai báo bên trong khối `dependency` nằm trong **dependency scope** riêng biệt, tách khỏi `ActorTable` và `GlobalScope`. Một dependency có thể chứa nhiều element. Tên element trong dependency không xung đột với tên element trong actor khác.
 
 **Ràng buộc:** `depender` và `dependee` phải là **leaf element** (`isLeaf = true`). Xem mục 4.
 
@@ -229,14 +231,47 @@ Sau khi hoàn thành 2 pass, thực hiện các kiểm tra sau:
 | S2 | `InvalidOperatorMatrix` | Cặp `(source.kind, target.kind, operator)` không có trong ma trận mục 3 |
 | S3 | `DependencyOnNonLeaf` | `depender.isLeaf = false` hoặc `dependee.isLeaf = false` |
 | S4 | `InvalidActorRelationship` | Vi phạm ràng buộc kiểu trong bảng mục 2.1 |
-| S5 | `DuplicateDeclaration` | Hai symbol cùng tên trong cùng scope |
+| S5 | `DuplicateDeclaration` | Hai symbol cùng tên trong cùng scope — scope được xét riêng biệt: `ActorTable` (global), `ElementTable` (trong từng actor), `DependencyTable` (global), `dependumTable` (trong từng dependency) |
 | S6 | `SelfReference` | `resolvedTarget = sourceElement` (phần tử tự quan hệ với chính nó) |
 | S7 | `QualifySourceNotQuality` | Toán tử `=>` dùng với nguồn không phải `QUALITY` |
 | S8 | `NeededBySourceNotResource` | Toán tử `<>` dùng với nguồn không phải `RESOURCE` |
+| S9 | `CircularRefinement` | Tồn tại chu trình trong đồ thị Refinement, ví dụ `A &> B` và `B &> A` |
+| S10 | `MixedRefinementType` | Một element đích nhận đồng thời cả `AND_REFINE` (`&>`) và `OR_REFINE` (`\|>`) từ các element khác nhau |
+
+### Nguồn gốc các lỗi (Traceability)
+
+| # | Tên lỗi | Nguồn gốc | Trích dẫn / Ghi chú |
+|---|---|---|---|
+| S1 | `UndeclaredReference` | Spec v1.0 — Mục 1.4 | Ma trận liên kết yêu cầu Nguồn và Đích phải là các phần tử tồn tại trong mô hình |
+| S2 | `InvalidOperatorMatrix` | Spec v1.0 — Mục 1.4, Hình 1 | Ô `n/a` trong ma trận liên kết giữa các thành phần chủ đích là tổ hợp bị cấm |
+| S3 | `DependencyOnNonLeaf` | Spec v1.0 — Mục 1.5 | *"Mọi mối quan hệ phụ thuộc phải được thiết lập trên các phần tử lá — tức là các phần tử ở mức chi tiết nhất chưa qua tinh chỉnh"* |
+| S4 | `InvalidActorRelationship` | Spec v1.0 — Mục 1.6 | Bảng ràng buộc kiểu: `is-a` chỉ actor→actor hoặc role→role; `participates-in` chỉ agent→role hoặc agent→agent |
+| S5 | `DuplicateDeclaration` | Spec v1.0 — Mục 1.2, 1.3 | Mỗi tác nhân và phần tử mang tên định danh duy nhất; ngầm định từ cơ chế tra cứu theo tên trong symbol table |
+| S6 | `SelfReference` | Spec v1.0 — Mục 1.4 | Ma trận định nghĩa quan hệ giữa các phần tử khác nhau; không có trường hợp phần tử tự trỏ vào chính nó |
+| S7 | `QualifySourceNotQuality` | Spec v1.0 — Mục 1.4.3 | *"Qualification: dùng để gán một thuộc tính chất lượng làm tiêu chuẩn"* — nguồn bắt buộc là `quality` |
+| S8 | `NeededBySourceNotResource` | Spec v1.0 — Mục 1.4.4 | *"NeededBy: một tài nguyên ở Nguồn được cung cấp cho một tác vụ ở Đích"* — nguồn bắt buộc là `resource`, đích bắt buộc là `task` |
+| S9 | `CircularRefinement` | Confirm ngoài spec — 2025 | Spec không đề cập; xác nhận thủ công: chu trình trong Refinement là vô nghĩa về mặt ngữ nghĩa và bị cấm |
+| S10 | `MixedRefinementType` | Confirm ngoài spec — 2025 | Spec không đề cập; xác nhận thủ công: một element đích không thể vừa nhận `AND_REFINE` vừa nhận `OR_REFINE` |
 
 ---
 
-## 7. Ví dụ minh họa
+**Ví dụ S9 — CircularRefinement:**
+
+```
+task A &> B { }
+task B &> A { }   // → lỗi: A → B → A tạo thành chu trình
+```
+
+Phát hiện bằng thuật toán DFS trên đồ thị Refinement sau Pass 2. Nếu tồn tại back edge → báo lỗi S9.
+
+**Ví dụ S10 — MixedRefinementType:**
+
+```
+task X &> C { }   // C nhận AND-refinement từ X
+task Y |> C { }   // C nhận OR-refinement từ Y → lỗi: không thể trộn lẫn
+```
+
+Phát hiện bằng cách theo dõi `refinementTypeOf[target]`: lần đầu ghi nhận kiểu (`AND` hoặc `OR`), lần sau nếu khác kiểu → báo lỗi S10.
 
 ### Mã nguồn
 
@@ -332,167 +367,3 @@ GlobalScope
 ---
 
 *Tài liệu này được tạo phục vụ môn học Nguyên lý Ngôn ngữ Lập trình — ĐH Công nghệ, ĐHQGHN — 2025.*
-
----
-
-## 8. Biểu đồ tương tác giữa các bảng
-
-### 8.1 Quan hệ dữ liệu (sau Pass 2)
-
-```mermaid
-flowchart TD
-    GM["GoalModelCS (AST)"] --> B["GoalSymbolTableBuilder"]
-    B --> GS["GlobalScope / GoalSymbolTable"]
-
-    GS --> AT["ActorTable: Map{name -> ActorSymbol}"]
-    GS --> DT["DependencyTable: Map{name -> DependencySymbol}"]
-    GS --> EQ["elementsByQualifiedName: Map{Actor.Element -> ElementSymbol}"]
-
-    AT --> A1["ActorSymbol: DeliverySystem"]
-    AT --> A2["ActorSymbol: Customer"]
-
-    A1 --> ET1["elementTable (local scope)"]
-    A2 --> ET2["elementTable (local scope)"]
-
-    ET1 --> E11["AssignDriver : TASK"]
-    ET1 --> E12["DeliverPackage : GOAL"]
-    ET1 --> E13["FastDelivery : QUALITY"]
-    ET2 --> E21["PaymentConfirmed : GOAL"]
-
-    E11 --> R1["RelationEntry (&> DeliverPackage)"]
-    E11 --> R2["RelationEntry (++> FastDelivery)"]
-
-    R1 --> E12
-    R2 --> E13
-
-    DT --> D1["DependencySymbol: OrderConfirmation"]
-    D1 --> DR1["dependerRawRef: DeliverySystem.AssignDriver"]
-    D1 --> DR2["dependeeRawRef: Customer.PaymentConfirmed"]
-    D1 --> DRS1["depender (resolved): ElementSymbol"]
-    D1 --> DRS2["dependee (resolved): ElementSymbol"]
-    D1 --> DDM["dependum: ElementSymbol"]
-
-    DR1 -. Pass 2 resolve .-> E11
-    DR2 -. Pass 2 resolve .-> E21
-    DRS1 --> E11
-    DRS2 --> E21
-```
-
-### 8.2 Trình tự dựng bảng (Pass 1 -> Pass 2)
-
-```mermaid
-sequenceDiagram
-    participant AST as GoalModelCS
-    participant Builder as GoalSymbolTableBuilder
-    participant Global as GoalSymbolTable
-    participant ActorT as ActorTable
-    participant ElemT as ElementTable
-    participant DepT as DependencyTable
-
-    AST->>Builder: build(ast)
-    Builder->>Global: create(modelName)
-
-    Note over Builder: Pass 1 - Declaration
-    Builder->>ActorT: add ActorSymbol(s)
-    Builder->>ElemT: add ElementSymbol(s) per actor
-    Builder->>ElemT: store RelationEntry targetRef (raw)
-    Builder->>DepT: add DependencySymbol raw refs
-
-    Note over Builder: Pass 2 - Resolution
-    Builder->>ElemT: resolve RelationEntry.resolvedTarget
-    Builder->>DepT: resolve depender/dependee -> ElementSymbol
-    Builder->>ElemT: update isLeaf from refinement targets
-    Builder->>Builder: emit SemanticIssue if any violation
-```
-
-### 8.3 Ghi nhớ nhanh
-
-- `ActorTable` quản lý namespace tác nhân ở mức global.
-- `elementTable` trong từng `ActorSymbol` quản lý namespace local của phần tử.
-- `elementsByQualifiedName` là chỉ mục tra cứu chéo nhanh cho dạng `Actor.Element`.
-- `RelationEntry.targetRef` là dữ liệu thô từ source; `resolvedTarget` là kết quả sau Pass 2.
-- `DependencySymbol` giữ cả raw refs và resolved refs để debug semantic dễ hơn.
-
-### 8.4 Quan hệ giữa các class trong folder `symbols`
-
-```mermaid
-classDiagram
-    class GoalSymbolTable {
-      -String modelName
-      -Map~String, ActorSymbol~ actorsByName
-      -Map~String, ElementSymbol~ elementsByQualifiedName
-      -Map~String, DependencySymbol~ dependenciesByName
-      +resolveActor(String)
-      +resolveElement(String)
-    }
-
-    class GoalSymbolTableBuilder {
-      -List~SemanticIssue~ issues
-      +build(GoalModelCS) GoalSymbolTable
-      +runDeclarationPass(GoalModelCS, GoalSymbolTable)
-      +runResolutionPass(GoalModelCS, GoalSymbolTable)
-    }
-
-    class ActorSymbol {
-      -String name
-      -ActorKind kind
-      -Token declarationToken
-      -Map~String, ElementSymbol~ elementTable
-    }
-
-    class ElementSymbol {
-      -String name
-      -ElementKind kind
-      -ActorSymbol ownerActor
-      -Token declarationToken
-      -List~RelationEntry~ relations
-      -boolean leaf
-      +getQualifiedName() String
-    }
-
-    class RelationEntry {
-      -OutgoingLink.Kind operator
-      -Token targetRef
-      -ElementSymbol resolvedTarget
-    }
-
-    class DependencySymbol {
-      -String name
-      -Token declarationToken
-      -String dependerRawRef
-      -String dependeeRawRef
-      -ElementSymbol depender
-      -ElementSymbol dependee
-      -ElementSymbol dependum
-    }
-
-    class SemanticIssue {
-      +String code
-      +String message
-      +int line
-      +int column
-    }
-
-    GoalSymbolTableBuilder --> GoalSymbolTable : builds
-    GoalSymbolTableBuilder --> SemanticIssue : reports
-
-    GoalSymbolTable *-- ActorSymbol : contains
-    GoalSymbolTable *-- ElementSymbol : qualified index
-    GoalSymbolTable *-- DependencySymbol : contains
-
-    ActorSymbol *-- ElementSymbol : elementTable
-    ElementSymbol *-- RelationEntry : relations
-    RelationEntry --> ElementSymbol : resolvedTarget
-
-    DependencySymbol --> ElementSymbol : depender/dependee/dependum
-    ElementSymbol --> ActorSymbol : ownerActor
-```
-
-Tóm tắt tổ chức:
-
-- `GoalSymbolTable` là object trung tâm chứa toàn bộ bảng tra cứu.
-- `GoalSymbolTableBuilder` là lớp dựng bảng theo 2 pass và ghi nhận lỗi `SemanticIssue`.
-- `ActorSymbol` sở hữu bảng `elementTable` (scope cục bộ theo actor).
-- `ElementSymbol` vừa biết owner actor, vừa giữ danh sách `RelationEntry`.
-- `RelationEntry` ban đầu giữ ref thô (`targetRef`), sau resolve sẽ trỏ `resolvedTarget`.
-- `DependencySymbol` giữ cả raw refs và các liên kết đã resolve để phục vụ semantic checks.

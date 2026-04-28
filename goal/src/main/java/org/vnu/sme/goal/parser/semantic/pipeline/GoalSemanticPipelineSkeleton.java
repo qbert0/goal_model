@@ -6,7 +6,7 @@ import java.util.List;
 import org.tzi.use.uml.mm.MModel;
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.parser.debug.GoalSymbolTablePrinter;
-import org.vnu.sme.goal.parser.semantic.symbols.DependencySymbol;
+import org.vnu.sme.goal.parser.semantic.GoalSemanticAnalyzer;
 import org.vnu.sme.goal.parser.semantic.symbols.GoalSymbolTableBuilder;
 import org.vnu.sme.goal.parser.semantic.symbols.GoalSymbolTable;
 import org.vnu.sme.goal.parser.semantic.symbols.SemanticIssue;
@@ -16,10 +16,13 @@ import org.vnu.sme.goal.parser.semantic.symbols.SemanticIssue;
  * <p>
  * This class provides an incremental semantic pipeline structure.
  */
+
+// TODO: Recursion tree traverse
 public final class GoalSemanticPipelineSkeleton {
     private static final String DUMP_FLAG = "goal.dump.semantic.steps";
     private static final String DUMP_SYMBOLS_FLAG = "goal.dump.symbols";
     private GoalSymbolTableBuilder builder;
+    private final GoalSemanticAnalyzer analyzer = new GoalSemanticAnalyzer();
 
     public List<SemanticIssue> run(GoalModelCS ast, MModel model, PrintWriter err) {
         log(err, "=== GOAL Semantic Pipeline (Skeleton) ===");
@@ -28,7 +31,7 @@ public final class GoalSemanticPipelineSkeleton {
         declarationPass(ast, table, err);
         resolutionPass(ast, table, err);
         computeDerivedFlags(table, err);
-        List<SemanticIssue> issues = validateSemanticRules(table, model, err);
+        List<SemanticIssue> issues = validateSemanticRules(ast, table, model, err);
         printSemanticIssues(issues, err);
         return issues;
     }
@@ -78,26 +81,15 @@ public final class GoalSemanticPipelineSkeleton {
      * Semantic validations after pass2.
      * Current implementation collects base builder issues and leaf dependency checks.
      */
-    private List<SemanticIssue> validateSemanticRules(GoalSymbolTable table, MModel model, PrintWriter err) {
-        log(err, "[INFO] validateSemanticRules: collect base issues + leaf dependency check");
+    private List<SemanticIssue> validateSemanticRules(GoalModelCS ast, GoalSymbolTable table, MModel model, PrintWriter err) {
+        log(err, "[INFO] validateSemanticRules: run semantic checks S1..S8");
         List<SemanticIssue> merged = new ArrayList<>(builder.getIssues());
-
-        for (DependencySymbol dep : table.getDependenciesByName().values()) {
-            if (dep.getDepender() != null && !dep.getDepender().isLeaf()) {
-                merged.add(new SemanticIssue(
-                        "S3",
-                        "Dependency depender must be leaf: " + dep.getDepender().getQualifiedName(),
-                        dep.getDeclarationToken().getLine(),
-                        dep.getDeclarationToken().getCharPositionInLine()));
-            }
-            if (dep.getDependee() != null && !dep.getDependee().isLeaf()) {
-                merged.add(new SemanticIssue(
-                        "S3",
-                        "Dependency dependee must be leaf: " + dep.getDependee().getQualifiedName(),
-                        dep.getDeclarationToken().getLine(),
-                        dep.getDeclarationToken().getCharPositionInLine()));
-            }
-        }
+        merged.addAll(analyzer.validateOperatorMatrix(table));              // S2
+        merged.addAll(analyzer.validateActorRelationships(ast, table));     // S4 (+ S1 actor refs)
+        merged.addAll(analyzer.validateDependencyOnLeaf(table));            // S3
+        merged.addAll(analyzer.validateSelfReference(table));               // S6
+        merged.addAll(analyzer.validateQualifySourceIsQuality(table));      // S7
+        merged.addAll(analyzer.validateNeededBySourceIsResource(table));    // S8
         return merged;
     }
 
