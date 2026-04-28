@@ -82,7 +82,7 @@ public final class GoalSemanticPipelineSkeleton {
      * Current implementation collects base builder issues and leaf dependency checks.
      */
     private List<SemanticIssue> validateSemanticRules(GoalModelCS ast, GoalSymbolTable table, MModel model, PrintWriter err) {
-        log(err, "[INFO] validateSemanticRules: run semantic checks S1..S8");
+        log(err, "[INFO] validateSemanticRules: run semantic checks S1..S10");
         List<SemanticIssue> merged = new ArrayList<>(builder.getIssues());
         merged.addAll(analyzer.validateOperatorMatrix(table));              // S2
         merged.addAll(analyzer.validateActorRelationships(ast, table));     // S4 (+ S1 actor refs)
@@ -90,6 +90,8 @@ public final class GoalSemanticPipelineSkeleton {
         merged.addAll(analyzer.validateSelfReference(table));               // S6
         merged.addAll(analyzer.validateQualifySourceIsQuality(table));      // S7
         merged.addAll(analyzer.validateNeededBySourceIsResource(table));    // S8
+        merged.addAll(analyzer.validateCircularRefinement(table));          // S9
+        merged.addAll(analyzer.validateMixedRefinementType(table));         // S10
         return merged;
     }
 

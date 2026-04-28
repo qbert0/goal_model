@@ -3,8 +3,11 @@ package org.vnu.sme.goal.parser.semantic;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.antlr.v4.runtime.Token;
 import org.vnu.sme.goal.ast.ActorDeclCS;
 import org.vnu.sme.goal.ast.GoalModelCS;
@@ -48,6 +51,8 @@ public final class GoalSemanticAnalyzer {
         issues.addAll(validateSelfReference(table));
         issues.addAll(validateQualifySourceIsQuality(table));
         issues.addAll(validateNeededBySourceIsResource(table));
+        issues.addAll(validateCircularRefinement(table));
+        issues.addAll(validateMixedRefinementType(table));
         return issues;
     }
 
@@ -206,6 +211,57 @@ public final class GoalSemanticAnalyzer {
         return issues;
     }
 
+    public List<SemanticIssue> validateCircularRefinement(GoalSymbolTable table) {
+        List<SemanticIssue> issues = new ArrayList<>();
+        Map<ElementSymbol, List<RefinementEdge>> refinementGraph = buildRefinementGraph(table);
+        Map<ElementSymbol, VisitState> states = new HashMap<>();
+        Set<String> emittedCycleEdges = new HashSet<>();
+        for (ElementSymbol node : refinementGraph.keySet()) {
+            if (states.getOrDefault(node, VisitState.UNVISITED) == VisitState.UNVISITED) {
+                detectCircularRefinementDfs(node, refinementGraph, states, emittedCycleEdges, issues);
+            }
+        }
+        return issues;
+    }
+
+    public List<SemanticIssue> validateMixedRefinementType(GoalSymbolTable table) {
+        List<SemanticIssue> issues = new ArrayList<>();
+        Map<ElementSymbol, OutgoingLink.Kind> refinementTypeByTarget = new HashMap<>();
+
+        for (ActorSymbol actor : table.getActorsByName().values()) {
+            for (ElementSymbol source : actor.getElementTable().values()) {
+                for (RelationEntry relation : source.getRelations()) {
+                    if (!isRefinement(relation.getOperator())) {
+                        continue;
+                    }
+                    ElementSymbol target = relation.getResolvedTarget();
+                    if (target == null) {
+                        continue;
+                    }
+
+                    OutgoingLink.Kind currentType = relation.getOperator();
+                    OutgoingLink.Kind existingType = refinementTypeByTarget.get(target);
+                    if (existingType == null) {
+                        refinementTypeByTarget.put(target, currentType);
+                        continue;
+                    }
+
+                    if (existingType != currentType) {
+                        Token errorToken = relation.getTargetRef();
+                        issues.add(new SemanticIssue(
+                                "S10",
+                                "Mixed refinement type on target " + target.getQualifiedName()
+                                        + ": existing " + toSymbol(existingType)
+                                        + ", found " + toSymbol(currentType),
+                                errorToken.getLine(),
+                                errorToken.getCharPositionInLine()));
+                    }
+                }
+            }
+        }
+        return issues;
+    }
+
     private void validateActorRefConstraint(
             ActorSymbol source,
             Token refToken,
@@ -272,6 +328,75 @@ public final class GoalSemanticAnalyzer {
             case QUALIFY -> "=>";
             case NEEDED_BY -> "<>";
         };
+    }
+
+    private static boolean isRefinement(OutgoingLink.Kind operator) {
+        return operator == OutgoingLink.Kind.REFINE_AND || operator == OutgoingLink.Kind.REFINE_OR;
+    }
+
+    private static Map<ElementSymbol, List<RefinementEdge>> buildRefinementGraph(GoalSymbolTable table) {
+        Map<ElementSymbol, List<RefinementEdge>> graph = new HashMap<>();
+
+        for (ActorSymbol actor : table.getActorsByName().values()) {
+            for (ElementSymbol source : actor.getElementTable().values()) {
+                graph.computeIfAbsent(source, key -> new ArrayList<>());
+                for (RelationEntry relation : source.getRelations()) {
+                    if (!isRefinement(relation.getOperator())) {
+                        continue;
+                    }
+                    ElementSymbol target = relation.getResolvedTarget();
+                    if (target == null) {
+                        continue;
+                    }
+                    graph.computeIfAbsent(target, key -> new ArrayList<>());
+                    graph.get(source).add(new RefinementEdge(target, relation.getTargetRef()));
+                }
+            }
+        }
+
+        return graph;
+    }
+
+    private static void detectCircularRefinementDfs(
+            ElementSymbol node,
+            Map<ElementSymbol, List<RefinementEdge>> graph,
+            Map<ElementSymbol, VisitState> states,
+            Set<String> emittedCycleEdges,
+            List<SemanticIssue> issues) {
+        states.put(node, VisitState.VISITING);
+
+        for (RefinementEdge edge : graph.getOrDefault(node, List.of())) {
+            ElementSymbol next = edge.target();
+            VisitState nextState = states.getOrDefault(next, VisitState.UNVISITED);
+            if (nextState == VisitState.UNVISITED) {
+                detectCircularRefinementDfs(next, graph, states, emittedCycleEdges, issues);
+                continue;
+            }
+            if (nextState == VisitState.VISITING) {
+                String cycleKey = node.getQualifiedName() + "->" + next.getQualifiedName();
+                if (emittedCycleEdges.add(cycleKey)) {
+                    Token errorToken = edge.targetToken();
+                    issues.add(new SemanticIssue(
+                            "S9",
+                            "Circular refinement detected: "
+                                    + next.getQualifiedName() + " ... -> " + node.getQualifiedName()
+                                    + " -> " + next.getQualifiedName(),
+                            errorToken.getLine(),
+                            errorToken.getCharPositionInLine()));
+                }
+            }
+        }
+
+        states.put(node, VisitState.VISITED);
+    }
+
+    private enum VisitState {
+        UNVISITED,
+        VISITING,
+        VISITED
+    }
+
+    private record RefinementEdge(ElementSymbol target, Token targetToken) {
     }
 
     private static Map<ElementKind, Map<OutgoingLink.Kind, EnumSet<ElementKind>>> createOperatorMatrix() {
