@@ -45,54 +45,19 @@ public final class GoalSemanticAnalyzer {
         GoalSymbolTable table = builder.build(ast);
 
         List<SemanticIssue> issues = new ArrayList<>(builder.getIssues());
-        issues.addAll(validateOperatorMatrix(table));
-        issues.addAll(validateActorRelationships(ast, table));
-        issues.addAll(validateDependencyOnLeaf(table));
-        issues.addAll(validateSelfReference(table));
-        issues.addAll(validateQualifySourceIsQuality(table));
-        issues.addAll(validateNeededBySourceIsResource(table));
-        issues.addAll(validateCircularRefinement(table));
-        issues.addAll(validateMixedRefinementType(table));
+        issues.addAll(traverseActorReferenceTree(ast, table));       // S1, S4
+        RelationTraversalContext relationContext = traverseElementRelationTree(table); // S2, S6, S7, S8 (+ collect S9, S10)
+        issues.addAll(relationContext.issues);
+        issues.addAll(traverseRefinementTargetMap(relationContext)); // S9, S10
+        issues.addAll(traverseDependencyTree(table));                // S3
         return issues;
     }
 
-    public List<SemanticIssue> validateOperatorMatrix(GoalSymbolTable table) {
-        List<SemanticIssue> issues = new ArrayList<>();
-        for (ActorSymbol actor : table.getActorsByName().values()) {
-            for (ElementSymbol source : actor.getElementTable().values()) {
-                for (RelationEntry relation : source.getRelations()) {
-                    ElementSymbol target = relation.getResolvedTarget();
-                    if (target == null) {
-                        continue;
-                    }
-
-                    OutgoingLink.Kind operator = relation.getOperator();
-                    // When source kind is already wrong for => or <>, S7/S8 handle those cases.
-                    // But if source kind is correct and only target is wrong, S2 must still fire.
-                    if (operator == OutgoingLink.Kind.QUALIFY && source.getKind() != ElementKind.QUALITY) {
-                        continue;
-                    }
-                    if (operator == OutgoingLink.Kind.NEEDED_BY && source.getKind() != ElementKind.RESOURCE) {
-                        continue;
-                    }
-
-                    if (!isMatrixAllowed(source.getKind(), operator, target.getKind())) {
-                        Token errorToken = relation.getTargetRef();
-                        issues.add(new SemanticIssue(
-                                "S2",
-                                "Invalid operator matrix: " + source.getKind() + " "
-                                        + toSymbol(operator) + " " + target.getKind()
-                                        + " (" + source.getQualifiedName() + " -> " + target.getQualifiedName() + ")",
-                                errorToken.getLine(),
-                                errorToken.getCharPositionInLine()));
-                    }
-                }
-            }
-        }
-        return issues;
-    }
-
-    public List<SemanticIssue> validateActorRelationships(GoalModelCS ast, GoalSymbolTable table) {
+    /**
+     * Traversal: Actor declaration references.
+     * Handles: S1 (undeclared actor ref), S4 (invalid actor relationship).
+     */
+    public List<SemanticIssue> traverseActorReferenceTree(GoalModelCS ast, GoalSymbolTable table) {
         List<SemanticIssue> issues = new ArrayList<>();
         for (ActorDeclCS actorDecl : ast.getActorDeclsCS()) {
             ActorSymbol source = table.getActorsByName().get(actorDecl.getfName().getText());
@@ -123,7 +88,97 @@ public final class GoalSemanticAnalyzer {
         return issues;
     }
 
-    public List<SemanticIssue> validateDependencyOnLeaf(GoalSymbolTable table) {
+    /**
+     * Traversal: Element relation tree (actor -> element -> relation) in one pass.
+     * Handles: S2 (operator matrix), S6 (self reference), S7 (qualify source), S8 (needed-by source).
+     * Collects refinement graph and incoming refinement metadata for S9 and S10 post checks.
+     */
+    public RelationTraversalContext traverseElementRelationTree(GoalSymbolTable table) {
+        RelationTraversalContext context = new RelationTraversalContext();
+        for (ActorSymbol actor : table.getActorsByName().values()) {
+            for (ElementSymbol source : actor.getElementTable().values()) {
+                context.refinementGraph.computeIfAbsent(source, key -> new ArrayList<>());
+                for (RelationEntry relation : source.getRelations()) {
+                    ElementSymbol target = relation.getResolvedTarget();
+                    if (target == null) {
+                        continue;
+                    }
+
+                    OutgoingLink.Kind operator = relation.getOperator();
+                    Token errorToken = relation.getTargetRef();
+
+                    // S6
+                    if (source == target) {
+                        context.issues.add(new SemanticIssue(
+                                "S6",
+                                "Self reference is not allowed: " + source.getQualifiedName(),
+                                errorToken.getLine(),
+                                errorToken.getCharPositionInLine()));
+                    }
+
+                    // S7
+                    if (operator == OutgoingLink.Kind.QUALIFY && source.getKind() != ElementKind.QUALITY) {
+                        context.issues.add(new SemanticIssue(
+                                "S7",
+                                "Qualify source must be QUALITY: " + source.getQualifiedName(),
+                                errorToken.getLine(),
+                                errorToken.getCharPositionInLine()));
+                    }
+
+                    // S8
+                    if (operator == OutgoingLink.Kind.NEEDED_BY && source.getKind() != ElementKind.RESOURCE) {
+                        context.issues.add(new SemanticIssue(
+                                "S8",
+                                "NeededBy source must be RESOURCE: " + source.getQualifiedName(),
+                                errorToken.getLine(),
+                                errorToken.getCharPositionInLine()));
+                    }
+
+                    // S2
+                    // When source kind is already wrong for => or <>, S7/S8 handle those cases.
+                    // But if source kind is correct and only target is wrong, S2 must still fire.
+                    if (!((operator == OutgoingLink.Kind.QUALIFY && source.getKind() != ElementKind.QUALITY)
+                            || (operator == OutgoingLink.Kind.NEEDED_BY && source.getKind() != ElementKind.RESOURCE))
+                            && !isMatrixAllowed(source.getKind(), operator, target.getKind())) {
+                        context.issues.add(new SemanticIssue(
+                                "S2",
+                                "Invalid operator matrix: " + source.getKind() + " "
+                                        + toSymbol(operator) + " " + target.getKind()
+                                        + " (" + source.getQualifiedName() + " -> " + target.getQualifiedName() + ")",
+                                errorToken.getLine(),
+                                errorToken.getCharPositionInLine()));
+                    }
+
+                    // Collect for S9 and S10.
+                    if (isRefinement(operator)) {
+                        context.refinementGraph.computeIfAbsent(target, key -> new ArrayList<>());
+                        context.refinementGraph.get(source).add(new RefinementEdge(target, errorToken));
+                        context.incomingRefinementsByTarget
+                                .computeIfAbsent(target, key -> new ArrayList<>())
+                                .add(new IncomingRefinement(operator, errorToken));
+                    }
+                }
+            }
+        }
+        return context;
+    }
+
+    /**
+     * Traversal: Derived refinement structures.
+     * Handles: S9 (circular refinement), S10 (mixed refinement type).
+     */
+    public List<SemanticIssue> traverseRefinementTargetMap(RelationTraversalContext context) {
+        List<SemanticIssue> issues = new ArrayList<>();
+        issues.addAll(validateMixedRefinementType(context.incomingRefinementsByTarget));
+        issues.addAll(validateCircularRefinement(context.refinementGraph));
+        return issues;
+    }
+
+    /**
+     * Traversal: Dependency declarations.
+     * Handles: S3 (dependency on non-leaf element).
+     */
+    public List<SemanticIssue> traverseDependencyTree(GoalSymbolTable table) {
         List<SemanticIssue> issues = new ArrayList<>();
         for (DependencySymbol dep : table.getDependenciesByName().values()) {
             if (dep.getDepender() != null && !dep.getDepender().isLeaf()) {
@@ -139,124 +194,6 @@ public final class GoalSemanticAnalyzer {
                         "Dependency dependee must be leaf: " + dep.getDependee().getQualifiedName(),
                         dep.getDeclarationToken().getLine(),
                         dep.getDeclarationToken().getCharPositionInLine()));
-            }
-        }
-        return issues;
-    }
-
-    public List<SemanticIssue> validateSelfReference(GoalSymbolTable table) {
-        List<SemanticIssue> issues = new ArrayList<>();
-        for (ActorSymbol actor : table.getActorsByName().values()) {
-            for (ElementSymbol source : actor.getElementTable().values()) {
-                for (RelationEntry relation : source.getRelations()) {
-                    ElementSymbol target = relation.getResolvedTarget();
-                    if (target == null) {
-                        continue;
-                    }
-                    if (source == target) {
-                        Token errorToken = relation.getTargetRef();
-                        issues.add(new SemanticIssue(
-                                "S6",
-                                "Self reference is not allowed: " + source.getQualifiedName(),
-                                errorToken.getLine(),
-                                errorToken.getCharPositionInLine()));
-                    }
-                }
-            }
-        }
-        return issues;
-    }
-
-    public List<SemanticIssue> validateQualifySourceIsQuality(GoalSymbolTable table) {
-        List<SemanticIssue> issues = new ArrayList<>();
-        for (ActorSymbol actor : table.getActorsByName().values()) {
-            for (ElementSymbol source : actor.getElementTable().values()) {
-                for (RelationEntry relation : source.getRelations()) {
-                    if (relation.getOperator() != OutgoingLink.Kind.QUALIFY || relation.getResolvedTarget() == null) {
-                        continue;
-                    }
-                    if (source.getKind() != ElementKind.QUALITY) {
-                        Token errorToken = relation.getTargetRef();
-                        issues.add(new SemanticIssue(
-                                "S7",
-                                "Qualify source must be QUALITY: " + source.getQualifiedName(),
-                                errorToken.getLine(),
-                                errorToken.getCharPositionInLine()));
-                    }
-                }
-            }
-        }
-        return issues;
-    }
-
-    public List<SemanticIssue> validateNeededBySourceIsResource(GoalSymbolTable table) {
-        List<SemanticIssue> issues = new ArrayList<>();
-        for (ActorSymbol actor : table.getActorsByName().values()) {
-            for (ElementSymbol source : actor.getElementTable().values()) {
-                for (RelationEntry relation : source.getRelations()) {
-                    if (relation.getOperator() != OutgoingLink.Kind.NEEDED_BY || relation.getResolvedTarget() == null) {
-                        continue;
-                    }
-                    if (source.getKind() != ElementKind.RESOURCE) {
-                        Token errorToken = relation.getTargetRef();
-                        issues.add(new SemanticIssue(
-                                "S8",
-                                "NeededBy source must be RESOURCE: " + source.getQualifiedName(),
-                                errorToken.getLine(),
-                                errorToken.getCharPositionInLine()));
-                    }
-                }
-            }
-        }
-        return issues;
-    }
-
-    public List<SemanticIssue> validateCircularRefinement(GoalSymbolTable table) {
-        List<SemanticIssue> issues = new ArrayList<>();
-        Map<ElementSymbol, List<RefinementEdge>> refinementGraph = buildRefinementGraph(table);
-        Map<ElementSymbol, VisitState> states = new HashMap<>();
-        Set<String> emittedCycleEdges = new HashSet<>();
-        for (ElementSymbol node : refinementGraph.keySet()) {
-            if (states.getOrDefault(node, VisitState.UNVISITED) == VisitState.UNVISITED) {
-                detectCircularRefinementDfs(node, refinementGraph, states, emittedCycleEdges, issues);
-            }
-        }
-        return issues;
-    }
-
-    public List<SemanticIssue> validateMixedRefinementType(GoalSymbolTable table) {
-        List<SemanticIssue> issues = new ArrayList<>();
-        Map<ElementSymbol, OutgoingLink.Kind> refinementTypeByTarget = new HashMap<>();
-
-        for (ActorSymbol actor : table.getActorsByName().values()) {
-            for (ElementSymbol source : actor.getElementTable().values()) {
-                for (RelationEntry relation : source.getRelations()) {
-                    if (!isRefinement(relation.getOperator())) {
-                        continue;
-                    }
-                    ElementSymbol target = relation.getResolvedTarget();
-                    if (target == null) {
-                        continue;
-                    }
-
-                    OutgoingLink.Kind currentType = relation.getOperator();
-                    OutgoingLink.Kind existingType = refinementTypeByTarget.get(target);
-                    if (existingType == null) {
-                        refinementTypeByTarget.put(target, currentType);
-                        continue;
-                    }
-
-                    if (existingType != currentType) {
-                        Token errorToken = relation.getTargetRef();
-                        issues.add(new SemanticIssue(
-                                "S10",
-                                "Mixed refinement type on target " + target.getQualifiedName()
-                                        + ": existing " + toSymbol(existingType)
-                                        + ", found " + toSymbol(currentType),
-                                errorToken.getLine(),
-                                errorToken.getCharPositionInLine()));
-                    }
-                }
             }
         }
         return issues;
@@ -334,27 +271,45 @@ public final class GoalSemanticAnalyzer {
         return operator == OutgoingLink.Kind.REFINE_AND || operator == OutgoingLink.Kind.REFINE_OR;
     }
 
-    private static Map<ElementSymbol, List<RefinementEdge>> buildRefinementGraph(GoalSymbolTable table) {
-        Map<ElementSymbol, List<RefinementEdge>> graph = new HashMap<>();
-
-        for (ActorSymbol actor : table.getActorsByName().values()) {
-            for (ElementSymbol source : actor.getElementTable().values()) {
-                graph.computeIfAbsent(source, key -> new ArrayList<>());
-                for (RelationEntry relation : source.getRelations()) {
-                    if (!isRefinement(relation.getOperator())) {
-                        continue;
-                    }
-                    ElementSymbol target = relation.getResolvedTarget();
-                    if (target == null) {
-                        continue;
-                    }
-                    graph.computeIfAbsent(target, key -> new ArrayList<>());
-                    graph.get(source).add(new RefinementEdge(target, relation.getTargetRef()));
+    private static List<SemanticIssue> validateMixedRefinementType(
+            Map<ElementSymbol, List<IncomingRefinement>> incomingRefinementsByTarget) {
+        List<SemanticIssue> issues = new ArrayList<>();
+        for (Map.Entry<ElementSymbol, List<IncomingRefinement>> entry : incomingRefinementsByTarget.entrySet()) {
+            ElementSymbol target = entry.getKey();
+            List<IncomingRefinement> incomingRefinements = entry.getValue();
+            if (incomingRefinements.isEmpty()) {
+                continue;
+            }
+            OutgoingLink.Kind firstKind = incomingRefinements.get(0).kind();
+            for (int i = 1; i < incomingRefinements.size(); i++) {
+                IncomingRefinement incoming = incomingRefinements.get(i);
+                if (incoming.kind() == firstKind) {
+                    continue;
                 }
+                Token errorToken = incoming.targetToken();
+                issues.add(new SemanticIssue(
+                        "S10",
+                        "Mixed refinement type on target " + target.getQualifiedName()
+                                + ": existing " + toSymbol(firstKind)
+                                + ", found " + toSymbol(incoming.kind()),
+                        errorToken.getLine(),
+                        errorToken.getCharPositionInLine()));
             }
         }
+        return issues;
+    }
 
-        return graph;
+    private static List<SemanticIssue> validateCircularRefinement(
+            Map<ElementSymbol, List<RefinementEdge>> refinementGraph) {
+        List<SemanticIssue> issues = new ArrayList<>();
+        Map<ElementSymbol, VisitState> states = new HashMap<>();
+        Set<String> emittedCycleEdges = new HashSet<>();
+        for (ElementSymbol node : refinementGraph.keySet()) {
+            if (states.getOrDefault(node, VisitState.UNVISITED) == VisitState.UNVISITED) {
+                detectCircularRefinementDfs(node, refinementGraph, states, emittedCycleEdges, issues);
+            }
+        }
+        return issues;
     }
 
     private static void detectCircularRefinementDfs(
@@ -396,7 +351,28 @@ public final class GoalSemanticAnalyzer {
         VISITED
     }
 
+    public static final class RelationTraversalContext {
+        private final List<SemanticIssue> issues = new ArrayList<>();
+        private final Map<ElementSymbol, List<RefinementEdge>> refinementGraph = new HashMap<>();
+        private final Map<ElementSymbol, List<IncomingRefinement>> incomingRefinementsByTarget = new HashMap<>();
+
+        public List<SemanticIssue> getIssues() {
+            return issues;
+        }
+
+        public Map<ElementSymbol, List<RefinementEdge>> getRefinementGraph() {
+            return refinementGraph;
+        }
+
+        public Map<ElementSymbol, List<IncomingRefinement>> getIncomingRefinementsByTarget() {
+            return incomingRefinementsByTarget;
+        }
+    }
+
     private record RefinementEdge(ElementSymbol target, Token targetToken) {
+    }
+
+    private record IncomingRefinement(OutgoingLink.Kind kind, Token targetToken) {
     }
 
     private static Map<ElementKind, Map<OutgoingLink.Kind, EnumSet<ElementKind>>> createOperatorMatrix() {
