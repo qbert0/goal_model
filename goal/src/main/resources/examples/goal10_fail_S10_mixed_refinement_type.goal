@@ -1,0 +1,7 @@
+istar Goal10FailS10
+
+agent DeliverySystem {
+    task ParentAnd &> SharedTarget { }
+    task ParentOr |> SharedTarget { }
+    task SharedTarget { }
+}

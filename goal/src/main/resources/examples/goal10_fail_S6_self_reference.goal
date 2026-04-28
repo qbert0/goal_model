@@ -1,0 +1,5 @@
+istar Goal10FailS6
+
+agent DeliverySystem {
+    quality FastDelivery +> FastDelivery { }
+}

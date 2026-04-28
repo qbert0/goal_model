@@ -1,0 +1,9 @@
+istar Goal10FailS4
+
+actor Customer {
+    goal NeedsSupport { }
+}
+
+actor DeliverySystem > Customer {
+    goal DeliverPackage { }
+}

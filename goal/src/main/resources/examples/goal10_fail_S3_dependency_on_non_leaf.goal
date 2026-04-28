@@ -1,0 +1,18 @@
+istar Goal10FailS3
+
+actor Customer {
+    goal PaymentConfirmed { }
+}
+
+agent DeliverySystem {
+    goal DeliverPackage { }
+    task AssignDriver &> DeliverPackage { }
+}
+
+dependency InvalidLeafUse {
+    depender DeliverySystem.AssignDriver
+    dependee DeliverySystem.DeliverPackage
+    dependum goal LeafViolation {
+        description = "Dependee is not leaf because it is refinement target";
+    }
+}

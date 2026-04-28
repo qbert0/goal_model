@@ -1,0 +1,7 @@
+istar Goal10FailS2
+
+agent DeliverySystem {
+    goal DeliverPackage { }
+
+    resource DriverDatabase &> DeliverPackage { }
+}

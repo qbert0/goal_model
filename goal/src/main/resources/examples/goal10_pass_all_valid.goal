@@ -1,0 +1,27 @@
+istar Goal10PassAllValid
+
+actor Customer {
+    goal PaymentConfirmed { }
+}
+
+role Dispatcher {
+    task Coordinate { }
+}
+
+agent DeliverySystem > Dispatcher {
+    goal DeliverPackage { }
+    task ProcessOrder &> DeliverPackage { }
+    task AssignDriver &> DeliverPackage { }
+    quality HighReliability { }
+    quality FastDelivery +> HighReliability { }
+    quality SystemSecurity => DriverDatabase { }
+    resource DriverDatabase <> AssignDriver { }
+}
+
+dependency ConfirmFlow {
+    depender DeliverySystem.ProcessOrder
+    dependee Customer.PaymentConfirmed
+    dependum goal OrderAccepted {
+        description = "Order must be accepted";
+    }
+}

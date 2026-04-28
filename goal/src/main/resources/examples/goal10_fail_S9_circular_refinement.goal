@@ -1,0 +1,6 @@
+istar Goal10FailS9
+
+agent DeliverySystem {
+    task A &> B { }
+    task B &> A { }
+}

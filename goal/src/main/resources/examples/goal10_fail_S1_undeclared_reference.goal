@@ -1,0 +1,5 @@
+istar Goal10FailS1
+
+agent DeliverySystem {
+    task AssignDriver ++> FastDelivery { }
+}
