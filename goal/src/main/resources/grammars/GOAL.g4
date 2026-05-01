@@ -94,8 +94,13 @@ elementBody
 /* -------------------------
  * Goal / Task OCL clauses
  * ------------------------- */
+
+// achieve có hai dạng:
+//   1. achieve: <expression>
+//   2. achieve for unique (<typedVarList>) in <expression> : <expression>
 achieveClause
     : ACHIEVE COLON expression SEMI?
+    | ACHIEVE FOR UNIQUE LPAREN typedVarList RPAREN IN expression COLON expression SEMI?
     ;
 
 maintainClause
@@ -112,6 +117,18 @@ preClause
 
 postClause
     : POST COLON expression SEMI?
+    ;
+
+/* -------------------------
+ * Typed variable list (dùng trong achieve for unique)
+ * Ví dụ: s: Student, c: Class
+ * ------------------------- */
+typedVarList
+    : typedVar (COMMA typedVar)*
+    ;
+
+typedVar
+    : IDENT COLON qualifiedName
     ;
 
 /* -------------------------
@@ -189,11 +206,17 @@ orExpr
     ;
 
 andExpr
-    : equalityExpr (AND equalityExpr)*
+    : notExpr (AND notExpr)*
+    ;
+
+// notExpr tách ra để NOT có thể đứng trước equalityExpr mà không xung đột với unaryExpr
+notExpr
+    : NOT notExpr
+    | equalityExpr
     ;
 
 equalityExpr
-    : relationalExpr ((EQ | NEEDED_BY) relationalExpr)*
+    : relationalExpr ((EQ | NEQ | NEEDED_BY) relationalExpr)*
     ;
 
 relationalExpr
@@ -209,8 +232,7 @@ multiplicativeExpr
     ;
 
 unaryExpr
-    : NOT unaryExpr
-    | MINUS unaryExpr
+    : MINUS unaryExpr
     | primaryExpr
     ;
 
@@ -221,6 +243,12 @@ primaryExpr
     | pathExpr
     ;
 
+/* -------------------------
+ * Path / navigation expressions
+ * Ví dụ: self.classes->forAll(c | ...)
+ *        self.students->size()
+ *        self.doors->collect(d | d.openingTime)->max()
+ * ------------------------- */
 pathExpr
     : primaryAtom pathSuffix*
     ;
@@ -231,10 +259,10 @@ primaryAtom
     ;
 
 pathSuffix
-    : DOT IDENT
-    | DOT IDENT AT_PRE
-    | DOT simpleCall
-    | CONTRIB_HURT collectionCall
+    : DOT IDENT AT_PRE          // attribute access with @pre
+    | DOT IDENT                 // plain attribute / association access
+    | DOT simpleCall            // plain operation call
+    | ARROW collectionCall      // collection operation: ->forAll(...), ->size(), etc.
     | AT_PRE
     ;
 
@@ -242,15 +270,57 @@ simpleCall
     : IDENT LPAREN argumentList? RPAREN
     ;
 
+/* -------------------------
+ * Collection calls (->)
+ * Covers iterator operations and aggregate functions defined in spec:
+ *   forAll, exists, collect  (iterator – section 5)
+ *   size, max, min, count    (aggregation – section 6.3)
+ *   includes, excludes, isEmpty, notEmpty  (common OCL helpers)
+ * Both iteratorCall and aggregateCall share the collectionCall rule.
+ * ------------------------- */
 collectionCall
     : iteratorCall
+    | aggregateCall
     | simpleCall
     ;
 
+// Iterator operations: forAll, exists, collect  — body separated by '|'
 iteratorCall
-    : IDENT LPAREN iteratorVars BAR expression RPAREN
+    : iteratorOp LPAREN iteratorVars BAR expression RPAREN
     ;
 
+iteratorOp
+    : FORALL
+    | EXISTS
+    | COLLECT
+    ;
+
+// Aggregate / query operations that take no iterator variable:
+//   ->size()  ->max()  ->min()  ->count(x | x > 0)  ->includes(expr)  ->excludes(expr)
+//   ->isEmpty()  ->notEmpty()
+aggregateCall
+    : aggregateOp LPAREN argumentList? RPAREN               // size(), max(), min(), isEmpty(), notEmpty(), includes(e), excludes(e)
+    | COUNT LPAREN iteratorVars BAR expression RPAREN       // count(x | x > 0)
+    ;
+
+aggregateOp
+    : SIZE
+    | MAX
+    | MIN
+    | IS_EMPTY
+    | NOT_EMPTY
+    | INCLUDES
+    | EXCLUDES
+    ;
+
+/* -------------------------
+ * Iterator variable declarations
+ * Supports:
+ *   c
+ *   c : Class
+ *   c, d
+ *   c : Class, d : Class
+ * ------------------------- */
 iteratorVars
     : IDENT
     | IDENT COLON qualifiedName
@@ -280,19 +350,24 @@ enumLiteral
  * Lexer Rules
  * ========================================================= */
 
-// Operators
+// --- Relation / operator tokens ---
 AND_REFINE      : '&>' ;
 OR_REFINE       : '|>' ;
 CONTRIB_MAKE    : '++>' ;
 CONTRIB_HELP    : '+>' ;
-CONTRIB_HURT    : '->' ;
+CONTRIB_HURT    : '->' ;            // reused as ARROW in pathSuffix via ARROW alias below
 CONTRIB_BREAK   : '-->' ;
 QUALIFY         : '=>' ;
 NEEDED_BY       : '<>' ;
 
+// Arrow for collection navigation (same lexeme as CONTRIB_HURT;
+// parser distinguishes by context – inside an expression, '->' is ARROW)
+ARROW           : '->' ;
+
 // OCL extra operators
 AT_PRE          : '@pre' ;
 DOUBLE_COLON    : '::' ;
+NEQ             : '<>' ;            // inequality – same lexeme as NEEDED_BY; parser context resolves
 LE              : '<=' ;
 GE              : '>=' ;
 PLUS            : '+' ;
@@ -314,7 +389,7 @@ EQ              : '=' ;
 COMMA           : ',' ;
 BAR             : '|' ;
 
-// Keywords
+// --- Keywords (must appear before IDENT) ---
 ISTAR           : 'istar' ;
 ACTOR           : 'actor' ;
 AGENT           : 'agent' ;
@@ -335,6 +410,11 @@ AVOID           : 'avoid' ;
 PRE             : 'pre' ;
 POST            : 'post' ;
 
+// Keywords for achieve for unique syntax (section 3.3)
+FOR             : 'for' ;
+UNIQUE          : 'unique' ;
+IN              : 'in' ;
+
 SELF            : 'self' ;
 TRUE            : 'true' ;
 FALSE           : 'false' ;
@@ -344,6 +424,21 @@ AND             : 'and' ;
 OR              : 'or' ;
 NOT             : 'not' ;
 IMPLIES         : 'implies' ;
+
+// OCL iterator keywords (section 5)
+FORALL          : 'forAll' ;
+EXISTS          : 'exists' ;
+COLLECT         : 'collect' ;
+
+// OCL aggregation function keywords (section 6.3)
+SIZE            : 'size' ;
+MAX             : 'max' ;
+MIN             : 'min' ;
+COUNT           : 'count' ;
+IS_EMPTY        : 'isEmpty' ;
+NOT_EMPTY       : 'notEmpty' ;
+INCLUDES        : 'includes' ;
+EXCLUDES        : 'excludes' ;
 
 // Lexical tokens
 IDENT
