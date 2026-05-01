@@ -11,7 +11,7 @@ public abstract class IntentionalElementCS extends DescriptionContainerCS {
     protected final Token fName;
     private final List<OutgoingLink> outgoingLinks = new ArrayList<>();
 
-    public IntentionalElementCS(Token fName) {
+    protected IntentionalElementCS(Token fName) {
         this.fName = fName;
     }
 
@@ -24,6 +24,8 @@ public abstract class IntentionalElementCS extends DescriptionContainerCS {
     }
 
     public void addOutgoingLink(OutgoingLink link) {
-        outgoingLinks.add(link);
+        if (link != null) {
+            outgoingLinks.add(link);
+        }
     }
 }

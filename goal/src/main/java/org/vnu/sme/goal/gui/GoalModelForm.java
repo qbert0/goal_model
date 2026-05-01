@@ -1,7 +1,6 @@
 package org.vnu.sme.goal.gui;
 
 import org.tzi.use.config.Options;
-import org.tzi.use.config.LastPathStore;
 import org.tzi.use.gui.main.MainWindow;
 import org.tzi.use.gui.util.CloseOnEscapeKeyListener;
 import org.tzi.use.gui.util.ExtFileFilter;
@@ -33,7 +32,7 @@ public class GoalModelForm extends ModelFormAbs {
         this.addKeyListener(new CloseOnEscapeKeyListener(this));
         this.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        goalFileChooser = new JFileChooser(LastPathStore.getGoalFileDirectory(Options.getLastDirectory()).toFile());
+        goalFileChooser = new JFileChooser(Options.getLastDirectory().toFile());
         goalFileChooser.setFileFilter(new ExtFileFilter("goal", "Goal Model File"));
         goalFileChooser.setDialogTitle("Choose Goal file");
         goalFileChooser.setMultiSelectionEnabled(false);
@@ -65,7 +64,6 @@ public class GoalModelForm extends ModelFormAbs {
                     File parentDir = selected.getParentFile();
                     if (parentDir != null) {
                         Options.setLastDirectory(parentDir.toPath());
-                        LastPathStore.setGoalFileDirectory(parentDir.toPath());
                     }
                 }
             }

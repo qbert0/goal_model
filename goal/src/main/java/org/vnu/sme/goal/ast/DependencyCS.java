@@ -3,7 +3,6 @@ package org.vnu.sme.goal.ast;
 import org.antlr.v4.runtime.Token;
 
 public class DependencyCS extends RelationCS {
-
     private Token dependerRef;
     private Token dependeeRef;
     private Token dependumRef;
@@ -13,6 +12,40 @@ public class DependencyCS extends RelationCS {
 
     public DependencyCS(Token fName) {
         super(fName);
+    }
+
+    public Token getDependerRef() {
+        return dependerRef;
+    }
+
+    public void setDependerRef(Token dependerRef) {
+        this.dependerRef = dependerRef;
+        this.dependerQualifiedName = dependerRef == null ? null : dependerRef.getText();
+    }
+
+    public void setDependerRef(String dependerQualifiedName) {
+        this.dependerQualifiedName = dependerQualifiedName;
+    }
+
+    public Token getDependeeRef() {
+        return dependeeRef;
+    }
+
+    public void setDependeeRef(Token dependeeRef) {
+        this.dependeeRef = dependeeRef;
+        this.dependeeQualifiedName = dependeeRef == null ? null : dependeeRef.getText();
+    }
+
+    public void setDependeeRef(String dependeeQualifiedName) {
+        this.dependeeQualifiedName = dependeeQualifiedName;
+    }
+
+    public Token getDependumRef() {
+        return dependumRef;
+    }
+
+    public void setDependumRef(Token dependumRef) {
+        this.dependumRef = dependumRef;
     }
 
     public String getDependerQualifiedName() {
@@ -37,29 +70,15 @@ public class DependencyCS extends RelationCS {
 
     public void setDependumElement(IntentionalElementCS dependumElement) {
         this.dependumElement = dependumElement;
+        this.dependumRef = dependumElement == null ? null : dependumElement.getfName();
     }
 
-    public Token getDependerRef() {
-        return dependerRef;
+    // Compatibility API for the current GoalModelFactory.
+    public IntentionalElementCS getDependum() {
+        return dependumElement;
     }
 
-    public void setDependerRef(Token dependerRef) {
-        this.dependerRef = dependerRef;
-    }
-
-    public Token getDependeeRef() {
-        return dependeeRef;
-    }
-
-    public void setDependeeRef(Token dependeeRef) {
-        this.dependeeRef = dependeeRef;
-    }
-
-    public Token getDependumRef() {
-        return dependumRef;
-    }
-
-    public void setDependumRef(Token dependumRef) {
-        this.dependumRef = dependumRef;
+    public void setDependum(IntentionalElementCS dependum) {
+        setDependumElement(dependum);
     }
 }
