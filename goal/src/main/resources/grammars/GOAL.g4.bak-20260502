@@ -99,8 +99,8 @@ elementBody
 //   1. achieve: <expression>
 //   2. achieve for unique (<typedVarList>) in <expression> : <expression>
 achieveClause
-    : ACHIEVE COLON body=expression SEMI?
-    | ACHIEVE FOR UNIQUE LPAREN typedVarList RPAREN IN source=expression COLON body=expression SEMI?
+    : ACHIEVE COLON expression SEMI?
+    | ACHIEVE FOR UNIQUE LPAREN typedVarList RPAREN IN expression COLON expression SEMI?
     ;
 
 maintainClause
@@ -194,50 +194,53 @@ descriptionClause
  * ========================================================= */
 
 expression
-    : conditionalImpliesExpression
+    : impliesExpr
     ;
 
-conditionalImpliesExpression
-    : conditionalOrExpression (IMPLIES conditionalOrExpression)*
+impliesExpr
+    : orExpr (IMPLIES orExpr)*
     ;
 
-conditionalOrExpression
-    : conditionalXOrExpression (OR conditionalXOrExpression)*
+orExpr
+    : andExpr (OR andExpr)*
     ;
 
-conditionalXOrExpression
-    : conditionalAndExpression (XOR conditionalAndExpression)*
+andExpr
+    : notExpr (AND notExpr)*
     ;
 
-conditionalAndExpression
-    : equalityExpression (AND equalityExpression)*
+// notExpr tách ra để NOT có thể đứng trước equalityExpr mà không xung đột với unaryExpr
+notExpr
+    : NOT notExpr
+    | equalityExpr
     ;
 
-equalityExpression
-    : relationalExpression ((EQ | NEEDED_BY) relationalExpression)*
+equalityExpr
+    : relationalExpr ((EQ | NEQ | NEEDED_BY) relationalExpr)*
     ;
 
-relationalExpression
-    : additiveExpression ((LT | LE | GT | GE) additiveExpression)*
+relationalExpr
+    : additiveExpr ((LT | LE | GT | GE) additiveExpr)*
     ;
 
-additiveExpression
-    : multiplicativeExpression ((PLUS | MINUS) multiplicativeExpression)*
+additiveExpr
+    : multiplicativeExpr ((PLUS | MINUS) multiplicativeExpr)*
     ;
 
-multiplicativeExpression
-    : unaryExpression ((STAR | SLASH | DIV) unaryExpression)*
+multiplicativeExpr
+    : unaryExpr ((STAR | SLASH) unaryExpr)*
     ;
 
-unaryExpression
-    : (NOT | MINUS | PLUS) unaryExpression
-    | postfixExpression
+unaryExpr
+    : MINUS unaryExpr
+    | primaryExpr
     ;
 
-primaryExpression
+primaryExpr
     : literal
-    | primaryAtom
+    | SELF
     | LPAREN expression RPAREN
+    | pathExpr
     ;
 
 /* -------------------------
@@ -246,8 +249,8 @@ primaryExpression
  *        self.students->size()
  *        self.doors->collect(d | d.openingTime)->max()
  * ------------------------- */
-postfixExpression
-    : primaryExpression pathSuffix*
+pathExpr
+    : primaryAtom pathSuffix*
     ;
 
 primaryAtom
@@ -259,7 +262,7 @@ pathSuffix
     : DOT IDENT AT_PRE          // attribute access with @pre
     | DOT IDENT                 // plain attribute / association access
     | DOT simpleCall            // plain operation call
-    | CONTRIB_HURT collectionCall      // collection operation: ->forAll(...), ->size(), etc.
+    | ARROW collectionCall      // collection operation: ->forAll(...), ->size(), etc.
     | AT_PRE
     ;
 
@@ -290,13 +293,6 @@ iteratorOp
     : FORALL
     | EXISTS
     | COLLECT
-    | SELECT
-    | REJECT
-    | ANY
-    | ONE
-    | IS_UNIQUE
-    | SORTED_BY
-    | CLOSURE
     ;
 
 // Aggregate / query operations that take no iterator variable:
@@ -359,21 +355,25 @@ AND_REFINE      : '&>' ;
 OR_REFINE       : '|>' ;
 CONTRIB_MAKE    : '++>' ;
 CONTRIB_HELP    : '+>' ;
-CONTRIB_HURT    : '->' ;
+CONTRIB_HURT    : '->' ;            // reused as ARROW in pathSuffix via ARROW alias below
 CONTRIB_BREAK   : '-->' ;
 QUALIFY         : '=>' ;
 NEEDED_BY       : '<>' ;
 
+// Arrow for collection navigation (same lexeme as CONTRIB_HURT;
+// parser distinguishes by context – inside an expression, '->' is ARROW)
+ARROW           : '->' ;
+
 // OCL extra operators
 AT_PRE          : '@pre' ;
 DOUBLE_COLON    : '::' ;
+NEQ             : '<>' ;            // inequality – same lexeme as NEEDED_BY; parser context resolves
 LE              : '<=' ;
 GE              : '>=' ;
 PLUS            : '+' ;
 MINUS           : '-' ;
 STAR            : '*' ;
 SLASH           : '/' ;
-DIV             : 'div' ;
 
 // Separators
 LBRACE          : '{' ;
@@ -422,7 +422,6 @@ NULL            : 'null' ;
 
 AND             : 'and' ;
 OR              : 'or' ;
-XOR             : 'xor' ;
 NOT             : 'not' ;
 IMPLIES         : 'implies' ;
 
@@ -430,13 +429,6 @@ IMPLIES         : 'implies' ;
 FORALL          : 'forAll' ;
 EXISTS          : 'exists' ;
 COLLECT         : 'collect' ;
-SELECT          : 'select' ;
-REJECT          : 'reject' ;
-ANY             : 'any' ;
-ONE             : 'one' ;
-IS_UNIQUE       : 'isUnique' ;
-SORTED_BY       : 'sortedBy' ;
-CLOSURE         : 'closure' ;
 
 // OCL aggregation function keywords (section 6.3)
 SIZE            : 'size' ;

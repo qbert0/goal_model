@@ -69,7 +69,7 @@ public abstract class ActorDeclCS extends DescriptionContainerCS {
         }
     }
 
-    // Compatibility API for the current GoalModelFactory.
+    // Compatibility API for GoalModelFactory / older parser code.
     public Token getParentRef() {
         return isARefs.isEmpty() ? null : isARefs.get(0);
     }

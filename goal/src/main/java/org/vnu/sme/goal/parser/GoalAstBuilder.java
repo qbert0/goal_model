@@ -168,7 +168,7 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
 
     private org.vnu.sme.goal.mm.ocl.Expression expression(ParserRuleContext ctx) {
         if (ctx instanceof GOALParser.AchieveClauseContext) {
-            return OclExpressionBuilder.build(((GOALParser.AchieveClauseContext) ctx).expression());
+            return OclExpressionBuilder.build(((GOALParser.AchieveClauseContext) ctx).body);
         }
         if (ctx instanceof GOALParser.MaintainClauseContext) {
             return OclExpressionBuilder.build(((GOALParser.MaintainClauseContext) ctx).expression());

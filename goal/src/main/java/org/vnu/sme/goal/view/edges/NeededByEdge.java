@@ -1,31 +1,28 @@
 package org.vnu.sme.goal.view.edges;
 
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Point;
-import java.awt.Stroke;
 import java.awt.geom.Point2D;
 import java.util.Iterator;
 
 import org.tzi.use.gui.views.diagrams.DiagramView;
-import org.tzi.use.gui.views.diagrams.edges.DirectedEdgeFactory;
 import org.tzi.use.gui.views.diagrams.elements.EdgeProperty;
 import org.tzi.use.gui.views.diagrams.elements.PlaceableNode;
 import org.tzi.use.gui.views.diagrams.elements.edges.EdgeBase;
 import org.tzi.use.gui.views.diagrams.waypoints.WayPoint;
 
-public class QualificationEdge extends EdgeBase {
+public class NeededByEdge extends EdgeBase {
     private final String edgeId;
 
-    public QualificationEdge(PlaceableNode source, PlaceableNode target, String edgeId, DiagramView diagram) {
+    public NeededByEdge(PlaceableNode source, PlaceableNode target, String edgeId, DiagramView diagram) {
         super(source, target, edgeId, diagram.getOptions(), true);
         this.edgeId = edgeId;
     }
 
     @Override
     protected void onDraw(Graphics2D g) {
-        g.setColor(isSelected() ? fOpt.getEDGE_SELECTED_COLOR() : Color.BLUE.darker());
+        g.setColor(isSelected() ? fOpt.getEDGE_SELECTED_COLOR() : Color.BLACK);
         drawEdge(g);
     }
 
@@ -53,19 +50,13 @@ public class QualificationEdge extends EdgeBase {
         Point source = new Point((int) Math.round(p1.getX()), (int) Math.round(p1.getY()));
         Point target = new Point((int) Math.round(p2.getX()), (int) Math.round(p2.getY()));
 
-        try {
-            Stroke oldStroke = g.getStroke();
-            g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[]{7f, 5f}, 0f));
-            DirectedEdgeFactory.drawAssociation(g, source.x, source.y, target.x, target.y, true);
-            g.setStroke(oldStroke);
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        g.drawLine(source.x, source.y, target.x, target.y);
+        g.fillOval(source.x - 5, source.y - 5, 10, 10);
     }
 
     @Override
     protected String getStoreType() {
-        return "Qualification";
+        return "NeededBy";
     }
 
     @Override

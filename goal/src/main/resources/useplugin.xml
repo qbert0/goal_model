@@ -11,5 +11,14 @@
                 toolbaritem="GoalModel Parser"
                 id="org.vnu.sme.goal.actions.ActionOpenGOAL">
         </action>
+        <action label="Goal Status Table"
+                icon="images/goal.png"
+                class="org.vnu.sme.goal.actions.ActionOpenGoalStatus"
+                tooltip="Open GOAL status table"
+                menu="GoalModel Plugin"
+                menuitem="Goal Status Table"
+                toolbaritem="Goal Status Table"
+                id="org.vnu.sme.goal.actions.ActionOpenGoalStatus">
+        </action>
     </actions>
 </plugin>

@@ -16,6 +16,9 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.tzi.use.uml.mm.MModel;
+import org.tzi.use.uml.ocl.value.VarBindings;
+import org.tzi.use.uml.sys.MSystem;
+import org.tzi.use.uml.sys.MSystemState;
 import org.tzi.use.uml.sys.MSystemException;
 import org.vnu.sme.goal.ast.GoalModelCS;
 import org.vnu.sme.goal.mm.GoalModel;
@@ -29,6 +32,11 @@ public class GOALCompiler {
     }
 
     public static GoalModel compileSpecification(String inName, PrintWriter err, MModel model)
+            throws MSystemException, FileNotFoundException {
+        return compileSpecification(inName, err, model, null);
+    }
+
+    public static GoalModel compileSpecification(String inName, PrintWriter err, MModel model, MSystem system)
             throws MSystemException, FileNotFoundException {
 
         try (InputStream inStream = new FileInputStream(inName)) {
@@ -57,6 +65,14 @@ public class GOALCompiler {
             }
 
             GoalModel goalModel = new GoalModelFactory().create(ast);
+            MSystemState systemState = system == null ? null : system.state();
+            VarBindings varBindings = system == null ? null : system.varBindings();
+            int oclProblems = GoalOclCompilationValidator.validate(goalModel, model, systemState, varBindings, err);
+            if (oclProblems > 0) {
+                err.println("[GOAL] compilation failed with " + oclProblems + " OCL validation issue(s).");
+                return null;
+            }
+
             err.println("Compiled GoalModel '" + goalModel.getName() + "' with "
                     + goalModel.getActors().size() + " actors and "
                     + goalModel.getDependencies().size() + " dependencies.");

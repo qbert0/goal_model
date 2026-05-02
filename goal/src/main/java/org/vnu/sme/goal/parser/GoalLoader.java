@@ -12,6 +12,7 @@ import org.tzi.use.main.Session;
 import org.tzi.use.uml.sys.MSystemException;
 import org.vnu.sme.goal.mm.GoalModel;
 import org.vnu.sme.goal.view.GoalDiagramView;
+import org.vnu.sme.goal.view.GoalViewRegistry;
 
 public class GoalLoader {
 
@@ -51,7 +52,8 @@ public class GoalLoader {
         return GOALCompiler.compileSpecification(
                 goalFileName,
                 logWriter,
-                session.system().model()
+                session.system().model(),
+                session.system()
         );
     }
 
@@ -60,7 +62,8 @@ public class GoalLoader {
             return;
         }
 
-        goalDiagramView = new GoalDiagramView(mainWindow, model, session.system().model());
+        goalDiagramView = new GoalDiagramView(mainWindow, model, session.system());
+        GoalViewRegistry.setCurrentView(goalDiagramView);
 
         ViewFrame frame = new ViewFrame("Goal diagram", goalDiagramView, "ClassDiagram.gif");
         JComponent contentPane = (JComponent) frame.getContentPane();

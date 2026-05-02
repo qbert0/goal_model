@@ -4,7 +4,7 @@ actor Customer {
     goal PaymentConfirmed {
         description = "Khách hàng đã hoàn tất thanh toán"
         achieve:
-            self.orders->forAll(o | o.paymentConfirmed = true)
+            self.order->forAll(o | o.paymentConfirmed = true)
     }
 }
 

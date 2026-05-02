@@ -19,7 +19,7 @@ import org.vnu.sme.goal.mm.Task;
 
 public class OclUseValidator {
     private static final Pattern ITERATOR_PATTERN = Pattern.compile(
-            "([A-Za-z_][A-Za-z_0-9]*(?:\\.[A-Za-z_][A-Za-z_0-9]*(?:@pre)?)+)\\s*->\\s*(?:forAll|exists|select|reject|collect)\\s*\\(\\s*([A-Za-z_][A-Za-z_0-9]*)");
+            "((?:self|[A-Za-z_][A-Za-z_0-9]*)(?:\\.[A-Za-z_][A-Za-z_0-9]*(?:@pre)?)*)\\s*->\\s*(?:forAll|exists|select|reject|collect)\\s*\\(\\s*([A-Za-z_][A-Za-z_0-9]*)");
     private static final Pattern PATH_PATTERN = Pattern.compile(
             "\\b(self|[A-Za-z_][A-Za-z_0-9]*)\\s*((?:\\.[A-Za-z_][A-Za-z_0-9]*(?:@pre)?)+)");
     private static final Pattern ENUM_PATTERN = Pattern.compile("\\b([A-Za-z_][A-Za-z_0-9]*)::([A-Za-z_][A-Za-z_0-9]*)\\b");
@@ -87,16 +87,27 @@ public class OclUseValidator {
 
     private MClass resolvePathType(String path, Map<String, MClass> variables, OclValidationReport report) {
         String[] parts = path.replace("@pre", "").split("\\.");
-        if (parts.length < 2) {
+        if (parts.length == 0) {
             return null;
         }
 
         MClass current = variables.get(parts[0]);
+        int startIndex = 1;
+
+        if (current == null) {
+            current = resolveImplicitRootProperty(parts[0], report);
+            startIndex = 1;
+        }
+
         if (current == null) {
             return null;
         }
 
-        for (int i = 1; i < parts.length; i++) {
+        if (parts.length == 1) {
+            return current;
+        }
+
+        for (int i = startIndex; i < parts.length; i++) {
             String property = parts[i];
 
             MAttribute attribute = current.attribute(property, true);
@@ -120,6 +131,26 @@ public class OclUseValidator {
         }
 
         return current;
+    }
+
+    private MClass resolveImplicitRootProperty(String property, OclValidationReport report) {
+        if (rootClass == null) {
+            return null;
+        }
+
+        MAttribute attribute = rootClass.attribute(property, true);
+        if (attribute != null && attribute.type() instanceof MClass type) {
+            return type;
+        }
+
+        MClass roleTarget = roleTarget(rootClass, property);
+        if (roleTarget != null) {
+            return roleTarget;
+        }
+
+        report.add("Unknown root property '" + property + "' on USE class '" + rootClass.name()
+                + "'. Use 'self." + property + "' or define the property in the USE model.");
+        return null;
     }
 
     private MClass roleTarget(MClass source, String roleName) {

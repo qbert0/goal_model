@@ -27,56 +27,68 @@ final class OclExpressionBuilder {
     }
 
     static Expression build(GOALParser.ExpressionContext ctx) {
-        return buildImplies(ctx.impliesExpr());
+        return buildConditionalImplies(ctx.conditionalImpliesExpression());
     }
 
-    private static Expression buildImplies(GOALParser.ImpliesExprContext ctx) {
-        Expression current = buildOr(ctx.orExpr(0));
-        for (int i = 1; i < ctx.orExpr().size(); i++) {
-            Expression right = buildOr(ctx.orExpr(i));
+    private static Expression buildConditionalImplies(GOALParser.ConditionalImpliesExpressionContext ctx) {
+        Expression current = buildConditionalOr(ctx.conditionalOrExpression(0));
+        for (int i = 1; i < ctx.conditionalOrExpression().size(); i++) {
+            Expression right = buildConditionalOr(ctx.conditionalOrExpression(i));
             current = new BinaryExp(binaryText(current, "implies", right), BinaryExp.Operator.IMPLIES,
                     current, right);
         }
         return current;
     }
 
-    private static Expression buildOr(GOALParser.OrExprContext ctx) {
-        Expression current = buildAnd(ctx.andExpr(0));
-        for (int i = 1; i < ctx.andExpr().size(); i++) {
-            Expression right = buildAnd(ctx.andExpr(i));
+    private static Expression buildConditionalOr(GOALParser.ConditionalOrExpressionContext ctx) {
+        Expression current = buildConditionalXor(ctx.conditionalXOrExpression(0));
+        for (int i = 1; i < ctx.conditionalXOrExpression().size(); i++) {
+            Expression right = buildConditionalXor(ctx.conditionalXOrExpression(i));
             current = new BinaryExp(binaryText(current, "or", right), BinaryExp.Operator.OR,
                     current, right);
         }
         return current;
     }
 
-    private static Expression buildAnd(GOALParser.AndExprContext ctx) {
-        Expression current = buildEquality(ctx.equalityExpr(0));
-        for (int i = 1; i < ctx.equalityExpr().size(); i++) {
-            Expression right = buildEquality(ctx.equalityExpr(i));
+    private static Expression buildConditionalXor(GOALParser.ConditionalXOrExpressionContext ctx) {
+        Expression current = buildConditionalAnd(ctx.conditionalAndExpression(0));
+        for (int i = 1; i < ctx.conditionalAndExpression().size(); i++) {
+            Expression right = buildConditionalAnd(ctx.conditionalAndExpression(i));
+            current = new BinaryExp(binaryText(current, "xor", right), BinaryExp.Operator.OR,
+                    current, right);
+        }
+        return current;
+    }
+
+    private static Expression buildConditionalAnd(GOALParser.ConditionalAndExpressionContext ctx) {
+        Expression current = buildEquality(ctx.equalityExpression(0));
+        for (int i = 1; i < ctx.equalityExpression().size(); i++) {
+            Expression right = buildEquality(ctx.equalityExpression(i));
             current = new BinaryExp(binaryText(current, "and", right), BinaryExp.Operator.AND,
                     current, right);
         }
         return current;
     }
 
-    private static Expression buildEquality(GOALParser.EqualityExprContext ctx) {
-        Expression current = buildRelational(ctx.relationalExpr(0));
-        for (int i = 1; i < ctx.relationalExpr().size(); i++) {
+    private static Expression buildEquality(GOALParser.EqualityExpressionContext ctx) {
+        Expression current = buildRelational(ctx.relationalExpression(0));
+        for (int i = 1; i < ctx.relationalExpression().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
-            BinaryExp.Operator mapped = "=".equals(operator.getText()) ? BinaryExp.Operator.EQUALS : BinaryExp.Operator.NOT_EQUALS;
-            Expression right = buildRelational(ctx.relationalExpr(i));
+            BinaryExp.Operator mapped = "=".equals(operator.getText())
+                    ? BinaryExp.Operator.EQUALS
+                    : BinaryExp.Operator.NOT_EQUALS;
+            Expression right = buildRelational(ctx.relationalExpression(i));
             current = new BinaryExp(binaryText(current, operator.getText(), right), mapped,
                     current, right);
         }
         return current;
     }
 
-    private static Expression buildRelational(GOALParser.RelationalExprContext ctx) {
-        Expression current = buildAdditive(ctx.additiveExpr(0));
-        for (int i = 1; i < ctx.additiveExpr().size(); i++) {
+    private static Expression buildRelational(GOALParser.RelationalExpressionContext ctx) {
+        Expression current = buildAdditive(ctx.additiveExpression(0));
+        for (int i = 1; i < ctx.additiveExpression().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
-            Expression right = buildAdditive(ctx.additiveExpr(i));
+            Expression right = buildAdditive(ctx.additiveExpression(i));
             current = new BinaryExp(binaryText(current, operator.getText(), right), mapRelational(operator),
                     current, right);
         }
@@ -92,51 +104,66 @@ final class OclExpressionBuilder {
         };
     }
 
-    private static Expression buildAdditive(GOALParser.AdditiveExprContext ctx) {
-        Expression current = buildMultiplicative(ctx.multiplicativeExpr(0));
-        for (int i = 1; i < ctx.multiplicativeExpr().size(); i++) {
+    private static Expression buildAdditive(GOALParser.AdditiveExpressionContext ctx) {
+        Expression current = buildMultiplicative(ctx.multiplicativeExpression(0));
+        for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
-            BinaryExp.Operator mapped = "+".equals(operator.getText()) ? BinaryExp.Operator.ADD : BinaryExp.Operator.SUBTRACT;
-            Expression right = buildMultiplicative(ctx.multiplicativeExpr(i));
+            BinaryExp.Operator mapped = "+".equals(operator.getText())
+                    ? BinaryExp.Operator.ADD
+                    : BinaryExp.Operator.SUBTRACT;
+            Expression right = buildMultiplicative(ctx.multiplicativeExpression(i));
             current = new BinaryExp(binaryText(current, operator.getText(), right), mapped,
                     current, right);
         }
         return current;
     }
 
-    private static Expression buildMultiplicative(GOALParser.MultiplicativeExprContext ctx) {
-        Expression current = buildUnary(ctx.unaryExpr(0));
-        for (int i = 1; i < ctx.unaryExpr().size(); i++) {
+    private static Expression buildMultiplicative(GOALParser.MultiplicativeExpressionContext ctx) {
+        Expression current = buildUnary(ctx.unaryExpression(0));
+        for (int i = 1; i < ctx.unaryExpression().size(); i++) {
             Token operator = (Token) ctx.getChild(2 * i - 1).getPayload();
-            BinaryExp.Operator mapped = "*".equals(operator.getText()) ? BinaryExp.Operator.MULTIPLY : BinaryExp.Operator.DIVIDE;
-            Expression right = buildUnary(ctx.unaryExpr(i));
+            BinaryExp.Operator mapped = "*".equals(operator.getText())
+                    ? BinaryExp.Operator.MULTIPLY
+                    : BinaryExp.Operator.DIVIDE;
+            Expression right = buildUnary(ctx.unaryExpression(i));
             current = new BinaryExp(binaryText(current, operator.getText(), right), mapped,
                     current, right);
         }
         return current;
     }
 
-    private static Expression buildUnary(GOALParser.UnaryExprContext ctx) {
+    private static Expression buildUnary(GOALParser.UnaryExpressionContext ctx) {
         if (ctx.NOT() != null) {
-            return new UnaryExp(ctx.getText(), UnaryExp.Operator.NOT, buildUnary(ctx.unaryExpr()));
+            return new UnaryExp(ctx.getText(), UnaryExp.Operator.NOT, buildUnary(ctx.unaryExpression()));
         }
         if (ctx.MINUS() != null) {
-            return new UnaryExp(ctx.getText(), UnaryExp.Operator.NEGATE, buildUnary(ctx.unaryExpr()));
+            return new UnaryExp(ctx.getText(), UnaryExp.Operator.NEGATE, buildUnary(ctx.unaryExpression()));
         }
-        return buildPrimary(ctx.primaryExpr());
+        if (ctx.PLUS() != null) {
+            return buildUnary(ctx.unaryExpression());
+        }
+        return buildPostfix(ctx.postfixExpression());
     }
 
-    private static Expression buildPrimary(GOALParser.PrimaryExprContext ctx) {
+    private static Expression buildPostfix(GOALParser.PostfixExpressionContext ctx) {
+        Expression current = buildPrimary(ctx.primaryExpression());
+        for (GOALParser.PathSuffixContext suffix : ctx.pathSuffix()) {
+            current = applySuffix(current, suffix);
+        }
+        return current;
+    }
+
+    private static Expression buildPrimary(GOALParser.PrimaryExpressionContext ctx) {
         if (ctx.literal() != null) {
             return buildLiteral(ctx.literal());
         }
-        if (ctx.SELF() != null) {
-            return new SelfExp(ctx.getText());
+        if (ctx.primaryAtom() != null) {
+            return buildPrimaryAtom(ctx.primaryAtom());
         }
         if (ctx.expression() != null) {
             return build(ctx.expression());
         }
-        return buildPath(ctx.pathExpr());
+        throw new IllegalStateException("Unsupported primary expression: " + ctx.getText());
     }
 
     private static Expression buildLiteral(GOALParser.LiteralContext ctx) {
@@ -159,15 +186,8 @@ final class OclExpressionBuilder {
             return new NullLiteralExp(ctx.getText());
         }
         GOALParser.EnumLiteralContext enumLiteral = ctx.enumLiteral();
-        return new EnumLiteralExp(enumLiteral.getText(), enumLiteral.IDENT(0).getText(), enumLiteral.IDENT(1).getText());
-    }
-
-    private static Expression buildPath(GOALParser.PathExprContext ctx) {
-        Expression current = buildPrimaryAtom(ctx.primaryAtom());
-        for (GOALParser.PathSuffixContext suffix : ctx.pathSuffix()) {
-            current = applySuffix(current, suffix);
-        }
-        return current;
+        return new EnumLiteralExp(enumLiteral.getText(), enumLiteral.IDENT(0).getText(),
+                enumLiteral.IDENT(1).getText());
     }
 
     private static Expression buildPrimaryAtom(GOALParser.PrimaryAtomContext ctx) {
@@ -194,13 +214,33 @@ final class OclExpressionBuilder {
     private static Expression buildCollectionCall(Expression source, GOALParser.CollectionCallContext ctx, String text) {
         if (ctx.iteratorCall() != null) {
             GOALParser.IteratorCallContext iterator = ctx.iteratorCall();
-            return new IteratorExp(text, source, mapIteratorKind(iterator.IDENT().getText()), iterator.IDENT().getText(),
+            String iteratorName = iterator.iteratorOp().getText();
+            return new IteratorExp(text, source, mapIteratorKind(iteratorName), iteratorName,
                     buildIteratorVars(iterator.iteratorVars()), build(iterator.expression()));
+        }
+        if (ctx.aggregateCall() != null) {
+            return buildAggregateCall(source, ctx.aggregateCall(), text);
         }
         return buildSimpleCall(source, ctx.simpleCall(), text, false);
     }
 
-    private static OperationCallExp buildSimpleCall(Expression source, GOALParser.SimpleCallContext ctx, String text, boolean atPre) {
+    private static Expression buildAggregateCall(Expression source, GOALParser.AggregateCallContext ctx, String text) {
+        if (ctx.aggregateOp() != null) {
+            List<Expression> arguments = new ArrayList<>();
+            if (ctx.argumentList() != null) {
+                for (GOALParser.ExpressionContext argument : ctx.argumentList().expression()) {
+                    arguments.add(build(argument));
+                }
+            }
+            return new OperationCallExp(text, source, ctx.aggregateOp().getText(), false, arguments);
+        }
+
+        return new IteratorExp(text, source, IteratorExp.IteratorKind.UNKNOWN, ctx.COUNT().getText(),
+                buildIteratorVars(ctx.iteratorVars()), build(ctx.expression()));
+    }
+
+    private static OperationCallExp buildSimpleCall(Expression source, GOALParser.SimpleCallContext ctx, String text,
+            boolean atPre) {
         List<Expression> arguments = new ArrayList<>();
         if (ctx.argumentList() != null) {
             for (GOALParser.ExpressionContext argument : ctx.argumentList().expression()) {
