@@ -202,11 +202,7 @@ conditionalImpliesExpression
     ;
 
 conditionalOrExpression
-    : conditionalXOrExpression (OR conditionalXOrExpression)*
-    ;
-
-conditionalXOrExpression
-    : conditionalAndExpression (XOR conditionalAndExpression)*
+    : conditionalAndExpression (OR conditionalAndExpression)*
     ;
 
 conditionalAndExpression
@@ -226,7 +222,7 @@ additiveExpression
     ;
 
 multiplicativeExpression
-    : unaryExpression ((STAR | SLASH | DIV) unaryExpression)*
+    : unaryExpression ((STAR | SLASH) unaryExpression)*
     ;
 
 unaryExpression
@@ -290,13 +286,6 @@ iteratorOp
     : FORALL
     | EXISTS
     | COLLECT
-    | SELECT
-    | REJECT
-    | ANY
-    | ONE
-    | IS_UNIQUE
-    | SORTED_BY
-    | CLOSURE
     ;
 
 // Aggregate / query operations that take no iterator variable:
@@ -373,7 +362,6 @@ PLUS            : '+' ;
 MINUS           : '-' ;
 STAR            : '*' ;
 SLASH           : '/' ;
-DIV             : 'div' ;
 
 // Separators
 LBRACE          : '{' ;
@@ -422,7 +410,6 @@ NULL            : 'null' ;
 
 AND             : 'and' ;
 OR              : 'or' ;
-XOR             : 'xor' ;
 NOT             : 'not' ;
 IMPLIES         : 'implies' ;
 
@@ -430,13 +417,6 @@ IMPLIES         : 'implies' ;
 FORALL          : 'forAll' ;
 EXISTS          : 'exists' ;
 COLLECT         : 'collect' ;
-SELECT          : 'select' ;
-REJECT          : 'reject' ;
-ANY             : 'any' ;
-ONE             : 'one' ;
-IS_UNIQUE       : 'isUnique' ;
-SORTED_BY       : 'sortedBy' ;
-CLOSURE         : 'closure' ;
 
 // OCL aggregation function keywords (section 6.3)
 SIZE            : 'size' ;

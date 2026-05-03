@@ -56,24 +56,33 @@ public final class GoalModelBuildingVisitor extends GOALBaseVisitor<Object> {
     @Override
     public Object visitActorDefinition(GOALParser.ActorDefinitionContext ctx) {
         ActorCS actor = new ActorCS(ctx.IDENT(0).getSymbol());
-        fillActor(actor, ctx.IDENT().size() > 1 ? ctx.IDENT(1).getSymbol() : null,
-                ctx.IDENT().size() > 2 ? ctx.IDENT(2).getSymbol() : null, ctx.actorBody());
+        fillActor(
+                actor,
+                ctx.COLON() != null ? ctx.IDENT(1).getSymbol() : null,
+                ctx.GT() != null ? ctx.IDENT(ctx.COLON() != null ? 2 : 1).getSymbol() : null,
+                ctx.actorBody());
         return actor;
     }
 
     @Override
     public Object visitAgentDefinition(GOALParser.AgentDefinitionContext ctx) {
         AgentCS agent = new AgentCS(ctx.IDENT(0).getSymbol());
-        fillActor(agent, ctx.IDENT().size() > 1 ? ctx.IDENT(1).getSymbol() : null,
-                ctx.IDENT().size() > 2 ? ctx.IDENT(2).getSymbol() : null, ctx.actorBody());
+        fillActor(
+                agent,
+                ctx.COLON() != null ? ctx.IDENT(1).getSymbol() : null,
+                ctx.GT() != null ? ctx.IDENT(ctx.COLON() != null ? 2 : 1).getSymbol() : null,
+                ctx.actorBody());
         return agent;
     }
 
     @Override
     public Object visitRoleDefinition(GOALParser.RoleDefinitionContext ctx) {
         RoleCS role = new RoleCS(ctx.IDENT(0).getSymbol());
-        fillActor(role, ctx.IDENT().size() > 1 ? ctx.IDENT(1).getSymbol() : null,
-                ctx.IDENT().size() > 2 ? ctx.IDENT(2).getSymbol() : null, ctx.actorBody());
+        fillActor(
+                role,
+                ctx.COLON() != null ? ctx.IDENT(1).getSymbol() : null,
+                ctx.GT() != null ? ctx.IDENT(ctx.COLON() != null ? 2 : 1).getSymbol() : null,
+                ctx.actorBody());
         return role;
     }
 

@@ -1,0 +1,9 @@
+istar Goal20FailE6InvalidSelfNavigation
+
+agent DeliverySystem {
+    goal InvalidSelfPath {
+        // E6: unknown property "warehouseZones" on SystemState in state.use
+        maintain:
+            self.warehouseZones->notEmpty()
+    }
+}

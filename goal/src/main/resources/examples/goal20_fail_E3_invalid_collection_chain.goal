@@ -1,0 +1,9 @@
+istar Goal20FailE3InvalidCollectionChain
+
+agent DeliverySystem {
+    goal InvalidChainAfterSize {
+        // E3: size() returns scalar, cannot chain another ->forAll(...)
+        maintain:
+            self.orders->size()->forAll(x | x > 0)
+    }
+}

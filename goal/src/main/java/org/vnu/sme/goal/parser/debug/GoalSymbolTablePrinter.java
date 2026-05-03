@@ -1,10 +1,13 @@
 package org.vnu.sme.goal.parser.debug;
 
+import org.vnu.sme.goal.mm.ocl.VariableDeclaration;
 import org.vnu.sme.goal.parser.semantic.symbols.ActorSymbol;
 import org.vnu.sme.goal.parser.semantic.symbols.DependencySymbol;
 import org.vnu.sme.goal.parser.semantic.symbols.ElementSymbol;
+import org.vnu.sme.goal.parser.semantic.symbols.GoalContract;
 import org.vnu.sme.goal.parser.semantic.symbols.GoalSymbolTable;
 import org.vnu.sme.goal.parser.semantic.symbols.RelationEntry;
+import org.vnu.sme.goal.parser.semantic.symbols.TaskContract;
 
 public final class GoalSymbolTablePrinter {
     private GoalSymbolTablePrinter() {
@@ -36,6 +39,8 @@ public final class GoalSymbolTablePrinter {
                     }
                     sb.append("\n");
                 }
+                appendGoalContract(sb, element.getGoalContract());
+                appendTaskContract(sb, element.getTaskContract());
             }
         }
 
@@ -64,8 +69,50 @@ public final class GoalSymbolTablePrinter {
         return sb.toString();
     }
 
+    private static void appendGoalContract(StringBuilder sb, GoalContract contract) {
+        if (contract == null) {
+            return;
+        }
+        sb.append("          [goalContract] type=").append(contract.getType());
+        if (!contract.getIterVars().isEmpty()) {
+            sb.append(" iterVars=").append(formatVars(contract.getIterVars()));
+        }
+        if (contract.getSourceExpr() != null) {
+            sb.append(" source='").append(contract.getSourceExpr().getText()).append("'");
+        }
+        sb.append(" body=");
+        sb.append(contract.getBodyExpr() == null ? "<empty>" : "'" + contract.getBodyExpr().getText() + "'");
+        sb.append("\n");
+    }
+
+    private static void appendTaskContract(StringBuilder sb, TaskContract contract) {
+        if (contract == null) {
+            return;
+        }
+        sb.append("          [taskContract]");
+        sb.append(" pre=");
+        sb.append(contract.getPrecondition() == null ? "<none>" : "'" + contract.getPrecondition().getText() + "'");
+        sb.append(" post=");
+        sb.append(contract.getPostcondition() == null ? "<none>" : "'" + contract.getPostcondition().getText() + "'");
+        sb.append("\n");
+    }
+
+    private static String formatVars(java.util.List<VariableDeclaration> vars) {
+        StringBuilder out = new StringBuilder("[");
+        for (int i = 0; i < vars.size(); i++) {
+            if (i > 0) {
+                out.append(", ");
+            }
+            VariableDeclaration v = vars.get(i);
+            out.append(v.getName());
+            if (v.getTypeName() != null) {
+                out.append(": ").append(v.getTypeName());
+            }
+        }
+        return out.append("]").toString();
+    }
+
     private static String pos(org.antlr.v4.runtime.Token token) {
         return token.getLine() + ":" + token.getCharPositionInLine();
     }
 }
-

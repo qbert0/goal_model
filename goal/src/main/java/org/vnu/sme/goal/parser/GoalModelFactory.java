@@ -118,6 +118,7 @@ public class GoalModelFactory {
             if (goalCS.getGoalType() != null) {
                 switch (goalCS.getGoalType()) {
                     case ACHIEVE:
+                    case ACHIEVE_UNIQUE:
                         goal.setGoalClause(new Achieve());
                         break;
                     case MAINTAIN:

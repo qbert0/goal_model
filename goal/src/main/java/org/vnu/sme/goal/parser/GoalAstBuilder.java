@@ -4,6 +4,8 @@ import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 import org.vnu.sme.goal.ast.ActorCS;
 import org.vnu.sme.goal.ast.ActorDeclCS;
 import org.vnu.sme.goal.ast.AgentCS;
@@ -42,25 +44,47 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
     @Override
     public ActorCS visitActorDefinition(GOALParser.ActorDefinitionContext ctx) {
         ActorCS actor = new ActorCS(ctx.IDENT(0).getSymbol());
-        fillActor(actor, ctx.IDENT().size() > 1 ? ctx.IDENT(1).getSymbol() : null,
-                ctx.IDENT().size() > 2 ? ctx.IDENT(2).getSymbol() : null, ctx.actorBody());
+        fillActor(actor, extractRefAfterToken(ctx, GOALParser.COLON), extractRefAfterToken(ctx, GOALParser.GT), ctx.actorBody());
         return actor;
     }
 
     @Override
     public AgentCS visitAgentDefinition(GOALParser.AgentDefinitionContext ctx) {
         AgentCS agent = new AgentCS(ctx.IDENT(0).getSymbol());
-        fillActor(agent, ctx.IDENT().size() > 1 ? ctx.IDENT(1).getSymbol() : null,
-                ctx.IDENT().size() > 2 ? ctx.IDENT(2).getSymbol() : null, ctx.actorBody());
+        fillActor(agent, extractRefAfterToken(ctx, GOALParser.COLON), extractRefAfterToken(ctx, GOALParser.GT), ctx.actorBody());
         return agent;
     }
 
     @Override
     public RoleCS visitRoleDefinition(GOALParser.RoleDefinitionContext ctx) {
         RoleCS role = new RoleCS(ctx.IDENT(0).getSymbol());
-        fillActor(role, ctx.IDENT().size() > 1 ? ctx.IDENT(1).getSymbol() : null,
-                ctx.IDENT().size() > 2 ? ctx.IDENT(2).getSymbol() : null, ctx.actorBody());
+        fillActor(role, extractRefAfterToken(ctx, GOALParser.COLON), extractRefAfterToken(ctx, GOALParser.GT), ctx.actorBody());
         return role;
+    }
+
+    /**
+     * Extract the IDENT token immediately following a marker token (e.g. COLON or GT)
+     * inside actor/agent/role definition contexts.
+     */
+    private Token extractRefAfterToken(ParserRuleContext ctx, int markerTokenType) {
+        for (int i = 0; i < ctx.getChildCount(); i++) {
+            ParseTree child = ctx.getChild(i);
+            if (!(child instanceof TerminalNode marker)) {
+                continue;
+            }
+            if (marker.getSymbol().getType() != markerTokenType) {
+                continue;
+            }
+            for (int j = i + 1; j < ctx.getChildCount(); j++) {
+                ParseTree next = ctx.getChild(j);
+                if (next instanceof TerminalNode terminal
+                        && terminal.getSymbol().getType() == GOALParser.IDENT) {
+                    return terminal.getSymbol();
+                }
+            }
+            return null;
+        }
+        return null;
     }
 
     @Override
@@ -80,8 +104,12 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
         GOALParser.GoalClauseContext clause = ctx.goalBody().goalClause();
         if (clause != null) {
             ParserRuleContext child = (ParserRuleContext) clause.getChild(0);
-            goal.setGoalType(goalType(child));
-            goal.setOclExpression(expression(child));
+            if (child instanceof GOALParser.AchieveClauseContext achieveClause && achieveClause.FOR() != null) {
+                populateGoalContract(goal, child);
+            } else {
+                goal.setGoalType(goalType(child));
+                goal.setOclExpression(expression(child));
+            }
         }
 
         return goal;
@@ -156,6 +184,42 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
         element.setDescription(unquote(body.descriptionClause(0).STRING().getText()));
     }
 
+    /**
+     * Map an {@code achieveClause / maintainClause / avoidClause} parse-tree node onto the
+     * {@link GoalCS} contract slots. Handles both achieve forms:
+     *
+     * <pre>
+     * Form 1: achieve|maintain|avoid : &lt;expression&gt;
+     *           → goalType ∈ {ACHIEVE, MAINTAIN, AVOID}, oclExpression = body
+     *
+     * Form 2: achieve for unique (s: T, ...) in &lt;sourceExpr&gt; : &lt;bodyExpr&gt;
+     *           → goalType = ACHIEVE_UNIQUE,
+     *             iterVars   = parsed typedVarList,
+     *             sourceExpression = sourceExpr,
+     *             oclExpression    = bodyExpr
+     * </pre>
+     */
+    private void populateGoalContract(GoalCS goal, ParserRuleContext clause) {
+        if (clause instanceof GOALParser.AchieveClauseContext achieveClause) {
+            goal.setClauseToken(achieveClause.ACHIEVE().getSymbol());
+            goal.setGoalType(GoalCS.GoalType.ACHIEVE_UNIQUE);
+            goal.setIterVars(OclExpressionBuilder.buildTypedVarList(achieveClause.typedVarList()));
+            goal.setSourceExpression(OclExpressionBuilder.build(achieveClause.expression(0)));
+            goal.setOclExpression(OclExpressionBuilder.build(achieveClause.expression(1)));
+            return;
+        }
+        if (clause instanceof GOALParser.MaintainClauseContext maintainClause) {
+            goal.setGoalType(GoalCS.GoalType.MAINTAIN);
+            goal.setClauseToken(maintainClause.MAINTAIN().getSymbol());
+            goal.setOclExpression(OclExpressionBuilder.build(maintainClause.expression()));
+            return;
+        }
+        GOALParser.AvoidClauseContext avoidClause = (GOALParser.AvoidClauseContext) clause;
+        goal.setGoalType(GoalCS.GoalType.AVOID);
+        goal.setClauseToken(avoidClause.AVOID().getSymbol());
+        goal.setOclExpression(OclExpressionBuilder.build(avoidClause.expression()));
+    }
+
     private GoalCS.GoalType goalType(ParserRuleContext ctx) {
         if (ctx instanceof GOALParser.MaintainClauseContext) {
             return GoalCS.GoalType.MAINTAIN;
@@ -167,8 +231,8 @@ public class GoalAstBuilder extends GOALBaseVisitor<Object> {
     }
 
     private org.vnu.sme.goal.mm.ocl.Expression expression(ParserRuleContext ctx) {
-        if (ctx instanceof GOALParser.AchieveClauseContext) {
-            return OclExpressionBuilder.build(((GOALParser.AchieveClauseContext) ctx).body);
+        if (ctx instanceof GOALParser.AchieveClauseContext achieveClause) {
+            return OclExpressionBuilder.build(achieveClause.expression(0));
         }
         if (ctx instanceof GOALParser.MaintainClauseContext) {
             return OclExpressionBuilder.build(((GOALParser.MaintainClauseContext) ctx).expression());
