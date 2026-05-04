@@ -3,5 +3,5 @@ istar Goal10FailS8
 agent DeliverySystem {
     task AssignDriver { }
 
-    goal DeliverPackage <> AssignDriver { }
+    goal DeliverPackage neededBy AssignDriver { }
 }

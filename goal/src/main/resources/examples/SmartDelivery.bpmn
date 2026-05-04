@@ -1,0 +1,18 @@
+bpmn SmartDeliveryFlow {
+    collaboration SmartDeliveryCollaboration {
+        participant DeliverySystem process DeliverySystemProcess;
+    }
+
+    process DeliverySystemProcess {
+        startEvent DeliveryStart;
+        task ProcessOrder;
+        task AssignDriver;
+        task DeliverOrder;
+        endEvent DeliveryDone;
+
+        sequenceFlow d1 from DeliveryStart to ProcessOrder;
+        sequenceFlow d2 from ProcessOrder to AssignDriver;
+        sequenceFlow d3 from AssignDriver to DeliverOrder;
+        sequenceFlow d4 from DeliverOrder to DeliveryDone;
+    }
+}

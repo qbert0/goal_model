@@ -11,14 +11,23 @@
                 toolbaritem="GoalModel Parser"
                 id="org.vnu.sme.goal.actions.ActionOpenGOAL">
         </action>
-        <action label="Goal Status Table"
+        <action label="Load BPMN Model"
                 icon="images/goal.png"
-                class="org.vnu.sme.goal.actions.ActionOpenGoalStatus"
-                tooltip="Open GOAL status table"
+                class="org.vnu.sme.goal.actions.ActionOpenBPMN"
+                tooltip="Load simplified BPMN model"
                 menu="GoalModel Plugin"
-                menuitem="Goal Status Table"
-                toolbaritem="Goal Status Table"
-                id="org.vnu.sme.goal.actions.ActionOpenGoalStatus">
+                menuitem="Load BPMN Model"
+                toolbaritem="Load BPMN Model"
+                id="org.vnu.sme.goal.actions.ActionOpenBPMN">
+        </action>
+        <action label="Verify GOAL With BPMN"
+                icon="images/goal.png"
+                class="org.vnu.sme.goal.actions.ActionVerifyGoalWithBpmn"
+                tooltip="Verify GOAL model operational support using BPMN"
+                menu="GoalModel Plugin"
+                menuitem="Verify GOAL With BPMN"
+                toolbaritem="Verify GOAL With BPMN"
+                id="org.vnu.sme.goal.actions.ActionVerifyGoalWithBpmn">
         </action>
     </actions>
 </plugin>

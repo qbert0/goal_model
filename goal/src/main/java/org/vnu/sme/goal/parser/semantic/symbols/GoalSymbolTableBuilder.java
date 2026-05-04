@@ -19,6 +19,7 @@ import org.vnu.sme.goal.ast.RoleCS;
 import org.vnu.sme.goal.ast.TaskCS;
 import org.vnu.sme.goal.parser.semantic.enums.ActorKind;
 import org.vnu.sme.goal.parser.semantic.enums.ElementKind;
+import org.vnu.sme.goal.parser.semantic.enums.GoalContractType;
 
 /**
  * Symbol table construction in two passes.
@@ -98,6 +99,47 @@ public final class GoalSymbolTableBuilder {
         for (OutgoingLink link : elementDecl.getOutgoingLinks()) {
             elementSymbol.getRelations().add(new RelationEntry(link.kind(), link.target()));
         }
+
+        attachOclContracts(elementSymbol, elementDecl);
+    }
+
+    /**
+     * Lift any OCL contract present on the AST node into the symbol-table form
+     * ({@link GoalContract} or {@link TaskContract}). Run during the declaration
+     * pass so semantic analyzers that follow can rely on
+     * {@link ElementSymbol#getGoalContract()} / {@link ElementSymbol#getTaskContract()}.
+     */
+    private void attachOclContracts(ElementSymbol elementSymbol, IntentionalElementCS elementDecl) {
+        if (elementDecl instanceof GoalCS goalCS && goalCS.getGoalType() != null) {
+            elementSymbol.setGoalContract(new GoalContract(
+                    mapGoalContractType(goalCS.getGoalType()),
+                    goalCS.getClauseToken(),
+                    goalCS.getOclExpression(),
+                    goalCS.getSourceExpression(),
+                    goalCS.getIterVars()));
+            return;
+        }
+        if (elementDecl instanceof TaskCS taskCS) {
+            // Build a contract only if at least one of pre/post was present in source.
+            if (taskCS.getPreExpression() == null && taskCS.getPostExpression() == null
+                    && taskCS.getPreToken() == null && taskCS.getPostToken() == null) {
+                return;
+            }
+            elementSymbol.setTaskContract(new TaskContract(
+                    taskCS.getPreToken(),
+                    taskCS.getPreExpression(),
+                    taskCS.getPostToken(),
+                    taskCS.getPostExpression()));
+        }
+    }
+
+    private static GoalContractType mapGoalContractType(GoalCS.GoalType type) {
+        return switch (type) {
+            case ACHIEVE -> GoalContractType.ACHIEVE;
+            case ACHIEVE_UNIQUE -> GoalContractType.ACHIEVE_UNIQUE;
+            case MAINTAIN -> GoalContractType.MAINTAIN;
+            case AVOID -> GoalContractType.AVOID;
+        };
     }
 
     private void registerDependency(DependencyCS depDecl, GoalSymbolTable table) {

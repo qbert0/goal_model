@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -19,11 +20,13 @@ import javax.swing.JDialog;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 import org.tzi.use.gui.main.MainWindow;
@@ -34,10 +37,13 @@ import org.tzi.use.gui.views.diagrams.DiagramOptions;
 import org.tzi.use.gui.views.diagrams.DiagramView;
 import org.tzi.use.gui.views.diagrams.elements.PlaceableNode;
 import org.tzi.use.gui.views.diagrams.elements.edges.EdgeBase;
+import org.tzi.use.gui.views.diagrams.event.ActionLoadLayout;
+import org.tzi.use.gui.views.diagrams.event.ActionSaveLayout;
 import org.tzi.use.uml.mm.MModel;
 import org.tzi.use.uml.ocl.value.VarBindings;
 import org.tzi.use.uml.sys.MSystem;
 import org.tzi.use.uml.sys.MSystemState;
+import org.vnu.sme.goal.mm.bpmn.BpmnModel;
 import org.vnu.sme.goal.mm.Actor;
 import org.vnu.sme.goal.mm.Agent;
 import org.vnu.sme.goal.mm.ConcreteIntentionalElement;
@@ -52,6 +58,7 @@ import org.vnu.sme.goal.mm.Resource;
 import org.vnu.sme.goal.mm.Role;
 import org.vnu.sme.goal.mm.Task;
 import org.vnu.sme.goal.parser.GoalOclService;
+import org.vnu.sme.goal.validator.GoalBpmnValidator;
 import org.vnu.sme.goal.view.edges.ContributionEdge;
 import org.vnu.sme.goal.view.edges.DependencyEdge;
 import org.vnu.sme.goal.view.edges.NeededByEdge;
@@ -82,9 +89,8 @@ public class GoalDiagramView extends DiagramView implements View {
     private final Map<Actor, ActorBoundaryNode> actorBoundaryMap = new HashMap<>();
     private final Map<PlaceableNode, Actor> nodeOwnerMap = new HashMap<>();
     private final Map<IntentionalElement, PlaceableNode> elementNodeMap = new HashMap<>();
-    private final Map<IntentionalElement, OclValidationReport> validationReports = new HashMap<>();
+    private final Map<String, GoalBpmnValidator.GoalCheckRow> latestBpmnGoalRows = new LinkedHashMap<>();
     private final DiagramOptions diagramOptions;
-    private final OclUseValidator oclValidator;
     private final GoalOclService goalOclService;
     private final GoalDiagramInputHandling inputHandling;
 
@@ -110,9 +116,10 @@ public class GoalDiagramView extends DiagramView implements View {
         super(new GoalDiagramOptions(), mainWindow.logWriter());
         this.goalModel = goalModel;
         this.diagramOptions = getOptions();
-        this.oclValidator = new OclUseValidator(useModel);
         this.goalOclService = new GoalOclService(useModel, systemState, varBindings);
         this.inputHandling = new GoalDiagramInputHandling(fNodeSelection, fEdgeSelection, this);
+        this.fActionSaveLayout = new ActionSaveLayout("USE goal diagram layout", "glt", this);
+        this.fActionLoadLayout = new ActionLoadLayout("USE goal diagram layout", "glt", this);
 
         initializeView();
         buildDiagram();
@@ -134,7 +141,6 @@ public class GoalDiagramView extends DiagramView implements View {
         createDependencyDependumNodes();
         createRelationEdges();
         createDependencyEdges();
-        validateOclExpressions();
         autoLayout();
         invalidateContent(true);
     }
@@ -253,7 +259,9 @@ public class GoalDiagramView extends DiagramView implements View {
 
     private PlaceableNode createElementNode(IntentionalElement element) {
         if (element instanceof Goal) {
-            return new GoalNode((Goal) element, diagramOptions);
+            GoalNode node = new GoalNode((Goal) element, diagramOptions);
+            applyStoredBpmnVerification((Goal) element, node);
+            return node;
         }
         if (element instanceof Task) {
             return new TaskNode((Task) element, diagramOptions);
@@ -447,6 +455,23 @@ public class GoalDiagramView extends DiagramView implements View {
                 showGoalDesignReport();
             }
         });
+
+        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("F9"), "goalBpmn");
+        getActionMap().put("goalBpmn", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                BpmnModel bpmnModel = GoalViewRegistry.getCurrentBpmnModel();
+                if (bpmnModel == null) {
+                    JOptionPane.showMessageDialog(
+                            GoalDiagramView.this,
+                            "No BPMN model is loaded yet. Load a .bpmn file first.",
+                            "GOAL + BPMN verification",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+                showBpmnVerificationReport(bpmnModel, GoalViewRegistry.getCurrentBpmnSource());
+            }
+        });
     }
 
     public void refreshDiagram() {
@@ -457,7 +482,6 @@ public class GoalDiagramView extends DiagramView implements View {
         actorBoundaryMap.clear();
         nodeOwnerMap.clear();
         elementNodeMap.clear();
-        validationReports.clear();
         buildDiagram();
     }
 
@@ -625,6 +649,21 @@ public class GoalDiagramView extends DiagramView implements View {
                 showGoalDesignReport();
             }
         }));
+        info.popupMenu.add(new JMenuItem(new AbstractAction("Verify GOAL with BPMN") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                BpmnModel bpmnModel = GoalViewRegistry.getCurrentBpmnModel();
+                if (bpmnModel == null) {
+                    JOptionPane.showMessageDialog(
+                            GoalDiagramView.this,
+                            "No BPMN model is loaded yet. Load a .bpmn file first.",
+                            "GOAL + BPMN verification",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+                showBpmnVerificationReport(bpmnModel, GoalViewRegistry.getCurrentBpmnSource());
+            }
+        }));
         return info;
     }
 
@@ -643,15 +682,6 @@ public class GoalDiagramView extends DiagramView implements View {
             maxY = Math.max(maxY, boundaryNode.getBounds().getMaxY());
         }
         return (int) maxY + 70;
-    }
-
-    private void validateOclExpressions() {
-        validationReports.clear();
-        for (IntentionalElement element : goalModel.getAllElements()) {
-            if (element instanceof Goal || element instanceof Task) {
-                validationReports.put(element, oclValidator.validate(element));
-            }
-        }
     }
 
     private void showOclValidationReport() {
@@ -709,15 +739,30 @@ public class GoalDiagramView extends DiagramView implements View {
                     continue;
                 }
 
+                String goalType = goal.getGoalType() == null ? "none" : goal.getGoalType().name().toLowerCase();
+                String expression = goal.getOclExpression();
+                if (expression == null || expression.isBlank()) {
+                    model.addRow(new Object[] {
+                            actor.getName(),
+                            goal.getName(),
+                            goalType,
+                            "NONE",
+                            "SKIPPED",
+                            "INCOMPLETE",
+                            "Goal has no OCL clause yet."
+                    });
+                    continue;
+                }
+
                 GoalOclService.CompilationResult syntax =
-                        goalOclService.validateExpression(goal.getOclExpression(), "goal:" + goal.getName());
+                        goalOclService.validateExpression(expression, "goal:" + goal.getName());
                 GoalOclService.EvalResult eval =
-                        goalOclService.evaluateBooleanExpression(goal.getOclExpression(), "goal:" + goal.getName());
+                        goalOclService.evaluateBooleanExpression(expression, "goal:" + goal.getName());
 
                 model.addRow(new Object[] {
                         actor.getName(),
                         goal.getName(),
-                        goal.getGoalType() == null ? "unspecified" : goal.getGoalType().name().toLowerCase(),
+                        goalType,
                         syntax.ok() ? "OK" : "ERROR",
                         eval.kind(),
                         deriveGoalStatus(goal, eval),
@@ -750,6 +795,7 @@ public class GoalDiagramView extends DiagramView implements View {
         return String.join("\n",
                 "Validator OCL = compile-time syntax/type check using USE OCL compiler.",
                 "Status table = runtime evaluation on the current USE SystemState.",
+                "Goals without OCL are treated as incomplete design elements and are not evaluated.",
                 "OCL value is the raw boolean result of the goal expression: TRUE / FALSE / UNDEFINED / ERROR.",
                 "Goal status is derived from goal kind:",
                 "- achieve, maintain: TRUE => satisfied, FALSE => violated",
@@ -781,6 +827,123 @@ public class GoalDiagramView extends DiagramView implements View {
         area.setCaretPosition(0);
         JOptionPane.showMessageDialog(this, new JScrollPane(area),
                 "GOAL design analysis", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public void showBpmnVerificationReport(BpmnModel bpmnModel, String sourceName) {
+        GoalBpmnValidator validator = new GoalBpmnValidator(goalModel, bpmnModel, goalOclService);
+        GoalBpmnValidator.AnalysisReport report = validator.analyze();
+        applyBpmnVerification(report);
+
+        DefaultTableModel tableModel = new DefaultTableModel(
+                new Object[] { "Actor", "Goal", "Type", "Goal state", "Detail" }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        for (GoalBpmnValidator.GoalCheckRow row : report.goalRows()) {
+            tableModel.addRow(new Object[] {
+                    row.actor(),
+                    row.goal(),
+                    row.type(),
+                    row.status(),
+                    row.detail()
+            });
+        }
+
+        JTable table = new JTable(tableModel);
+        table.setAutoCreateRowSorter(true);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.getColumnModel().getColumn(4).setPreferredWidth(520);
+        table.getColumnModel().getColumn(3).setCellRenderer(new VerificationStatusRenderer());
+        table.getSelectionModel().addListSelectionListener(event -> {
+            if (event.getValueIsAdjusting()) {
+                return;
+            }
+            int viewRow = table.getSelectedRow();
+            if (viewRow < 0) {
+                return;
+            }
+            int modelRow = table.convertRowIndexToModel(viewRow);
+            Object actorName = tableModel.getValueAt(modelRow, 0);
+            Object goalName = tableModel.getValueAt(modelRow, 1);
+            focusVerificationContext(
+                    actorName == null ? null : actorName.toString(),
+                    goalName == null ? null : goalName.toString(),
+                    null,
+                    goalName == null ? null : goalName.toString());
+        });
+
+        DefaultTableModel obligationModel = new DefaultTableModel(
+                new Object[] { "Actor", "Goal", "Kind", "From", "To", "Status", "Expression" }, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        for (GoalBpmnValidator.ObligationRow row : report.obligationRows()) {
+            obligationModel.addRow(new Object[] {
+                    row.actor(),
+                    row.goal(),
+                    row.obligationType(),
+                    row.sourceTask(),
+                    row.target(),
+                    row.status(),
+                    row.expression()
+            });
+        }
+
+        JTable obligationTable = new JTable(obligationModel);
+        obligationTable.setAutoCreateRowSorter(true);
+        obligationTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        obligationTable.getColumnModel().getColumn(5).setCellRenderer(new VerificationStatusRenderer());
+        obligationTable.getColumnModel().getColumn(6).setPreferredWidth(460);
+        obligationTable.getSelectionModel().addListSelectionListener(event -> {
+            if (event.getValueIsAdjusting()) {
+                return;
+            }
+            int viewRow = obligationTable.getSelectedRow();
+            if (viewRow < 0) {
+                return;
+            }
+            int modelRow = obligationTable.convertRowIndexToModel(viewRow);
+            Object actorName = obligationModel.getValueAt(modelRow, 0);
+            Object goalName = obligationModel.getValueAt(modelRow, 1);
+            Object sourceTaskName = obligationModel.getValueAt(modelRow, 3);
+            Object targetElementName = obligationModel.getValueAt(modelRow, 4);
+            focusVerificationContext(
+                    actorName == null ? null : actorName.toString(),
+                    goalName == null ? null : goalName.toString(),
+                    sourceTaskName == null ? null : sourceTaskName.toString(),
+                    targetElementName == null ? null : targetElementName.toString());
+        });
+
+        JTextArea area = new JTextArea(validator.renderReport(sourceName), 18, 92);
+        area.setEditable(false);
+        area.setCaretPosition(0);
+
+        JDialog dialog = new JDialog(MainWindow.instance(), "GOAL + BPMN verification", false);
+        dialog.setLayout(new BorderLayout(8, 8));
+        JTextArea legend = new JTextArea(
+                "Top table: final goal proof results.\n"
+                        + "Middle table: generated proof obligations such as post(T1) => pre(T2) and post(Tn) => goal.\n"
+                        + "Bottom report: full textual explanation of the proof pipeline.\n"
+                        + "This validator uses symbolic OCL entailment on the GOAL OCL metamodel, not runtime state evaluation.",
+                3, 92);
+        legend.setEditable(false);
+        legend.setLineWrap(true);
+        legend.setWrapStyleWord(true);
+
+        JPanel centerPanel = new JPanel(new BorderLayout(8, 8));
+        centerPanel.add(new JScrollPane(table), BorderLayout.NORTH);
+        centerPanel.add(new JScrollPane(obligationTable), BorderLayout.CENTER);
+
+        dialog.add(centerPanel, BorderLayout.CENTER);
+        dialog.add(new JScrollPane(legend), BorderLayout.NORTH);
+        dialog.add(new JScrollPane(area), BorderLayout.SOUTH);
+        dialog.setSize(1180, 760);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private int appendValidation(StringBuilder reportText, IntentionalElement element, String clauseName, String expression) {
@@ -820,7 +983,7 @@ public class GoalDiagramView extends DiagramView implements View {
 
     private String deriveGoalStatus(Goal goal, GoalOclService.EvalResult eval) {
         if (goal.getGoalType() == null) {
-            return "UNKNOWN";
+            return "NONE";
         }
         if (eval.kind() == GoalOclService.EvalKind.ERROR || eval.kind() == GoalOclService.EvalKind.UNDEFINED) {
             return eval.kind().name();
@@ -880,5 +1043,104 @@ public class GoalDiagramView extends DiagramView implements View {
             }
         }
         return null;
+    }
+
+    public GoalModel getGoalModel() {
+        return goalModel;
+    }
+
+    private void applyStoredBpmnVerification(Goal goal, GoalNode node) {
+        GoalBpmnValidator.GoalCheckRow row = latestBpmnGoalRows.get(goal.getName());
+        if (row != null) {
+            node.setVerificationState(row.status(), row.detail());
+        }
+    }
+
+    private void applyBpmnVerification(GoalBpmnValidator.AnalysisReport report) {
+        latestBpmnGoalRows.clear();
+        for (GoalBpmnValidator.GoalCheckRow row : report.goalRows()) {
+            latestBpmnGoalRows.put(row.goal(), row);
+        }
+
+        for (Map.Entry<IntentionalElement, PlaceableNode> entry : elementNodeMap.entrySet()) {
+            if (!(entry.getKey() instanceof Goal goal) || !(entry.getValue() instanceof GoalNode goalNode)) {
+                continue;
+            }
+            GoalBpmnValidator.GoalCheckRow row = latestBpmnGoalRows.get(goal.getName());
+            if (row == null) {
+                goalNode.setVerificationState(null, null);
+            } else {
+                goalNode.setVerificationState(row.status(), row.detail());
+            }
+            invalidateNode(goalNode);
+        }
+        invalidateContent(true);
+        repaint();
+    }
+
+    private void focusVerificationContext(String actorName, String goalName, String sourceName, String targetName) {
+        fNodeSelection.clear();
+
+        PlaceableNode goalNode = findElementNode(actorName, goalName);
+        PlaceableNode sourceNode = findElementNode(actorName, sourceName);
+        PlaceableNode targetNode = findElementNode(actorName, targetName);
+
+        if (goalNode != null) {
+            fNodeSelection.add(goalNode);
+        }
+        if (sourceNode != null && sourceNode != goalNode) {
+            fNodeSelection.add(sourceNode);
+        }
+        if (targetNode != null && targetNode != goalNode && targetNode != sourceNode) {
+            fNodeSelection.add(targetNode);
+        }
+
+        invalidateContent(true);
+        repaint();
+    }
+
+    private PlaceableNode findElementNode(String actorName, String elementName) {
+        if (elementName == null || elementName.isBlank()) {
+            return null;
+        }
+
+        for (Map.Entry<IntentionalElement, PlaceableNode> entry : elementNodeMap.entrySet()) {
+            IntentionalElement element = entry.getKey();
+            if (!elementName.equals(element.getName())) {
+                continue;
+            }
+            if (actorName == null || actorName.isBlank()) {
+                return entry.getValue();
+            }
+            Actor owner = element.getOwner();
+            if (owner != null && actorName.equals(owner.getName())) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static final class VerificationStatusRenderer extends DefaultTableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                                                                boolean hasFocus, int row, int column) {
+            java.awt.Component component =
+                    super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            if (isSelected) {
+                return component;
+            }
+
+            String text = value == null ? "" : value.toString();
+            component.setForeground(Color.BLACK);
+            component.setBackground(Color.WHITE);
+            if ("TRUE".equalsIgnoreCase(text)) {
+                component.setBackground(new Color(220, 245, 223));
+                component.setForeground(new Color(27, 94, 32));
+            } else if ("FALSE".equalsIgnoreCase(text)) {
+                component.setBackground(new Color(255, 230, 230));
+                component.setForeground(new Color(183, 28, 28));
+            }
+            return component;
+        }
     }
 }

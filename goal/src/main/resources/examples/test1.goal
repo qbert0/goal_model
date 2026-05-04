@@ -93,7 +93,7 @@ agent DeliverySystem : ServiceProvider {
     task VerifyDriverLicense &> AssignDriver { }
     
     // Quan hệ neededBy: resource cung cap cho task
-    resource DriverDatabase <> AssignDriver { }
+    resource DriverDatabase neededBy AssignDriver { }
     
     // Quan hệ qualification: quality áp dụng lên resource
     quality SystemSecurity => DriverDatabase {

@@ -43,7 +43,18 @@ agent DeliverySystem {
         pre:
             self.orders->exists(o | o.status = OrderStatus::CREATED and o.paymentConfirmed = true)
         post:
-            self.orders->exists(o | o.status = OrderStatus::PROCESSING)
+            self.orders->exists(o |
+                o.status = OrderStatus::PROCESSING and
+                o.assignedDriver = null and
+                o.paymentConfirmed = true
+            ) and
+            self.drivers->exists(d | d.available = true and d.licenseValid = true) and
+            self.orders->forAll(o |
+                o.assignedDriver <> null implies o.assignedDriver.available = false
+            ) and
+            self.orders->forAll(o |
+                o.status = OrderStatus::DELIVERED implies o.paymentConfirmed = true
+            )
     }
 
     task AssignDriver &> DeliverPackage {
@@ -51,8 +62,17 @@ agent DeliverySystem {
             self.orders->exists(o | o.status = OrderStatus::PROCESSING and o.assignedDriver = null) and
             self.drivers->exists(d | d.available = true and d.licenseValid = true)
         post:
-            self.orders->exists(o | o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null) and
-            self.orders->forAll(o | o.assignedDriver <> null implies o.assignedDriver.available = false)
+            self.orders->exists(o |
+                o.status = OrderStatus::ASSIGNED and
+                o.assignedDriver <> null and
+                o.paymentConfirmed = true
+            ) and
+            self.orders->forAll(o |
+                o.assignedDriver <> null implies o.assignedDriver.available = false
+            ) and
+            self.orders->forAll(o |
+                o.status = OrderStatus::DELIVERED implies o.paymentConfirmed = true
+            )
     }
 
     task DeliverOrder &> DeliverPackage {
@@ -61,8 +81,16 @@ agent DeliverySystem {
                 o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null and o.paymentConfirmed = true
             )
         post:
-            self.orders->exists(o | o.status = OrderStatus::DELIVERED)
+            self.orders->forAll(o |
+                o.paymentConfirmed = true implies o.status = OrderStatus::DELIVERED
+            ) and
+            self.orders->forAll(o |
+                o.status = OrderStatus::DELIVERED implies o.paymentConfirmed = true
+            ) and
+            self.orders->forAll(o |
+                o.assignedDriver <> null implies o.assignedDriver.available = false
+            )
     }
 
-    resource DriverDatabase <> AssignDriver { }
+    resource DriverDatabase neededBy AssignDriver { }
 }

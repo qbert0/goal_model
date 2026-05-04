@@ -135,7 +135,7 @@ public final class GoalSemanticAnalyzer {
                     }
 
                     // S2
-                    // When source kind is already wrong for => or <>, S7/S8 handle those cases.
+                    // When source kind is already wrong for => or neededBy, S7/S8 handle those cases.
                     // But if source kind is correct and only target is wrong, S2 must still fire.
                     if (!((operator == OutgoingLink.Kind.QUALIFY && source.getKind() != ElementKind.QUALITY)
                             || (operator == OutgoingLink.Kind.NEEDED_BY && source.getKind() != ElementKind.RESOURCE))
@@ -263,7 +263,7 @@ public final class GoalSemanticAnalyzer {
             case CONTRIB_HURT -> "->";
             case CONTRIB_BREAK -> "-->";
             case QUALIFY -> "=>";
-            case NEEDED_BY -> "<>";
+            case NEEDED_BY -> "neededBy";
         };
     }
 

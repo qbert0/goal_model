@@ -19,7 +19,7 @@ agent DeliverySystem {
         description = "Optimize route"
     }
 
-    resource DriverDatabase <> AssignDriver {
+    resource DriverDatabase neededBy AssignDriver {
         description = "Driver database"
     }
 

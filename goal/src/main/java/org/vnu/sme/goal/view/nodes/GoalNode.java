@@ -13,9 +13,13 @@ import org.vnu.sme.goal.mm.Goal;
 
 public class GoalNode extends PlaceableNode implements ToolTipProvider {
     private static final int MARGIN = 10;
+    private static final Color DEFAULT_FILL = new Color(200, 230, 255);
+    private static final Color DEFAULT_BORDER = Color.BLUE;
     private DiagramOptions fOpt;
     private Goal fGoal;
     private String fLabel;
+    private String verificationStatus;
+    private String verificationDetail;
     
     public GoalNode(Goal goal, DiagramOptions opt) {
         this.fOpt = opt;
@@ -29,15 +33,18 @@ public class GoalNode extends PlaceableNode implements ToolTipProvider {
         Rectangle2D bounds = getBounds();
         FontMetrics fm = g.getFontMetrics();
         
+        Color fillColor = resolveFillColor();
+        Color borderColor = resolveBorderColor();
+
         // Vẽ hình oval cho Goal
-        g.setColor(new Color(200, 230, 255));
+        g.setColor(fillColor);
         g.fillOval((int)bounds.getX(), (int)bounds.getY(), 
                    (int)bounds.getWidth(), (int)bounds.getHeight());
         
         if (isSelected()) {
             g.setColor(fOpt.getNODE_SELECTED_COLOR());
         } else {
-            g.setColor(Color.BLUE);
+            g.setColor(borderColor);
         }
         g.drawOval((int)bounds.getX(), (int)bounds.getY(), 
                    (int)bounds.getWidth(), (int)bounds.getHeight());
@@ -93,10 +100,43 @@ public class GoalNode extends PlaceableNode implements ToolTipProvider {
     @Override
     public String getToolTip(MouseEvent event) {
         StringBuilder tooltip = new StringBuilder("<html><b>").append(fLabel).append("</b>");
+        if (verificationStatus != null && !verificationStatus.isBlank()) {
+            tooltip.append("<br/>BPMN verify: ").append(escape(verificationStatus));
+            if (verificationDetail != null && !verificationDetail.isBlank()) {
+                tooltip.append("<br/>Detail: ").append(escape(verificationDetail));
+            }
+        }
         if (fGoal.getOclExpression() != null) {
             tooltip.append("<br/>OCL: ").append(escape(fGoal.getOclExpression()));
         }
         return tooltip.append("</html>").toString();
+    }
+
+    public void setVerificationState(String status, String detail) {
+        this.verificationStatus = status;
+        this.verificationDetail = detail;
+    }
+
+    private Color resolveFillColor() {
+        if (verificationStatus == null) {
+            return DEFAULT_FILL;
+        }
+        return switch (verificationStatus) {
+            case "TRUE" -> new Color(212, 245, 212);
+            case "FALSE" -> new Color(252, 215, 215);
+            default -> DEFAULT_FILL;
+        };
+    }
+
+    private Color resolveBorderColor() {
+        if (verificationStatus == null) {
+            return DEFAULT_BORDER;
+        }
+        return switch (verificationStatus) {
+            case "TRUE" -> new Color(46, 125, 50);
+            case "FALSE" -> new Color(183, 28, 28);
+            default -> DEFAULT_BORDER;
+        };
     }
 
     private String escape(String text) {

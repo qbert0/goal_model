@@ -40,7 +40,6 @@ import org.vnu.sme.goal.mm.Refinement;
 import org.vnu.sme.goal.mm.Resource;
 import org.vnu.sme.goal.mm.Role;
 import org.vnu.sme.goal.mm.Task;
-import org.vnu.sme.goal.mm.ocl.Expression;
 
 public class GoalModelFactory {
     private final Map<ActorDeclCS, Actor> actorMap = new HashMap<>();
@@ -118,6 +117,7 @@ public class GoalModelFactory {
             if (goalCS.getGoalType() != null) {
                 switch (goalCS.getGoalType()) {
                     case ACHIEVE:
+                    case ACHIEVE_UNIQUE:
                         goal.setGoalClause(new Achieve());
                         break;
                     case MAINTAIN:
@@ -131,7 +131,7 @@ public class GoalModelFactory {
                 }
             }
             if (goalCS.getOclExpression() != null && goal.getGoalClause() != null) {
-                goal.getGoalClause().addExpression(goalCS.getOclExpression());
+                goal.getGoalClause().addExpression(OclModelBuilder.toRuntime(goalCS.getOclExpression()));
             }
             element = goal;
         } else if (cs instanceof TaskCS) {
@@ -140,12 +140,12 @@ public class GoalModelFactory {
             task.setDescription(taskCS.getDescription());
             if (taskCS.getPreExpression() != null) {
                 Pre pre = new Pre();
-                pre.addExpression(taskCS.getPreExpression());
+                pre.addExpression(OclModelBuilder.toRuntime(taskCS.getPreExpression()));
                 task.setPre(pre);
             }
             if (taskCS.getPostExpression() != null) {
                 Post post = new Post();
-                post.addExpression(taskCS.getPostExpression());
+                post.addExpression(OclModelBuilder.toRuntime(taskCS.getPostExpression()));
                 task.setPost(post);
             }
             element = task;
@@ -204,7 +204,7 @@ public class GoalModelFactory {
                     }
                     ((Quality) pending.source).addQualifiedElement((ConcreteIntentionalElement) target);
                     break;
-                case "<>":
+                case "neededBy":
                     if (!(pending.source instanceof Resource) || !(target instanceof Task)) {
                         throw new IllegalArgumentException("Needed-by requires Resource -> Task: "
                                 + pending.source.getName() + " -> " + target.getName());
@@ -245,7 +245,7 @@ public class GoalModelFactory {
             case CONTRIB_HURT -> "->";
             case CONTRIB_BREAK -> "-->";
             case QUALIFY -> "=>";
-            case NEEDED_BY -> "<>";
+            case NEEDED_BY -> "neededBy";
         };
     }
 

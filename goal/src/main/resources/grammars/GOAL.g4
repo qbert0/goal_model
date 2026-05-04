@@ -202,11 +202,7 @@ conditionalImpliesExpression
     ;
 
 conditionalOrExpression
-    : conditionalXOrExpression (OR conditionalXOrExpression)*
-    ;
-
-conditionalXOrExpression
-    : conditionalAndExpression (XOR conditionalAndExpression)*
+    : conditionalAndExpression (OR conditionalAndExpression)*
     ;
 
 conditionalAndExpression
@@ -214,7 +210,7 @@ conditionalAndExpression
     ;
 
 equalityExpression
-    : relationalExpression ((EQ | NEEDED_BY) relationalExpression)*
+    : relationalExpression ((EQ | NEQ) relationalExpression)*
     ;
 
 relationalExpression
@@ -226,7 +222,7 @@ additiveExpression
     ;
 
 multiplicativeExpression
-    : unaryExpression ((STAR | SLASH | DIV) unaryExpression)*
+    : unaryExpression ((STAR | SLASH) unaryExpression)*
     ;
 
 unaryExpression
@@ -291,13 +287,6 @@ iteratorOp
     | EXISTS
     | EXIST
     | COLLECT
-    | SELECT
-    | REJECT
-    | ANY
-    | ONE
-    | IS_UNIQUE
-    | SORTED_BY
-    | CLOSURE
     ;
 
 // Aggregate / query operations that take no iterator variable:
@@ -364,7 +353,8 @@ CONTRIB_HELP    : '+>' ;
 CONTRIB_HURT    : '->' ;
 CONTRIB_BREAK   : '-->' ;
 QUALIFY         : '=>' ;
-NEEDED_BY       : '<>' ;
+NEEDED_BY       : 'neededBy' ;
+NEQ             : '<>' ;
 
 // OCL extra operators
 AT_PRE          : '@pre' ;
@@ -375,7 +365,6 @@ PLUS            : '+' ;
 MINUS           : '-' ;
 STAR            : '*' ;
 SLASH           : '/' ;
-DIV             : 'div' ;
 
 // Separators
 LBRACE          : '{' ;
@@ -424,7 +413,6 @@ NULL            : 'null' ;
 
 AND             : 'and' ;
 OR              : 'or' ;
-XOR             : 'xor' ;
 NOT             : 'not' ;
 IMPLIES         : 'implies' ;
 
@@ -433,13 +421,6 @@ FORALL          : 'forAll' ;
 EXISTS          : 'exists' ;
 EXIST           : 'exist' ;
 COLLECT         : 'collect' ;
-SELECT          : 'select' ;
-REJECT          : 'reject' ;
-ANY             : 'any' ;
-ONE             : 'one' ;
-IS_UNIQUE       : 'isUnique' ;
-SORTED_BY       : 'sortedBy' ;
-CLOSURE         : 'closure' ;
 
 // OCL aggregation function keywords (section 6.3)
 SIZE            : 'size' ;

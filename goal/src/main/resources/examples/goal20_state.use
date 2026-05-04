@@ -1,0 +1,16 @@
+model Goal20State
+
+class SystemState
+attributes
+end
+
+class Order
+attributes
+  id: String
+end
+
+association HasOrders between
+  SystemState[1] role system
+  Order[*] role orders
+end
+

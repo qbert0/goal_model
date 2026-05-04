@@ -15,7 +15,7 @@ agent DeliverySystem > Dispatcher {
     quality HighReliability { }
     quality FastDelivery +> HighReliability { }
     quality SystemSecurity => DriverDatabase { }
-    resource DriverDatabase <> AssignDriver { }
+    resource DriverDatabase neededBy AssignDriver { }
 }
 
 dependency ConfirmFlow {

@@ -1,0 +1,9 @@
+istar Goal20FailE7UnknownIterVarType
+
+agent DeliverySystem {
+    goal UnknownIteratorType {
+        // E7: GhostOrderType does not resolve in USE model
+        achieve:
+            self.orders->forAll(o: GhostOrderType | o <> null)
+    }
+}
