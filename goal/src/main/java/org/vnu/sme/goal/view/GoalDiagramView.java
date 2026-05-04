@@ -439,6 +439,14 @@ public class GoalDiagramView extends DiagramView implements View {
                 showGoalStatusTable();
             }
         });
+
+        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("F8"), "goalDesign");
+        getActionMap().put("goalDesign", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showGoalDesignReport();
+            }
+        });
     }
 
     public void refreshDiagram() {
@@ -611,6 +619,12 @@ public class GoalDiagramView extends DiagramView implements View {
                 showGoalStatusTable();
             }
         }));
+        info.popupMenu.add(new JMenuItem(new AbstractAction("Analyze GOAL design") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showGoalDesignReport();
+            }
+        }));
         return info;
     }
 
@@ -740,6 +754,33 @@ public class GoalDiagramView extends DiagramView implements View {
                 "Goal status is derived from goal kind:",
                 "- achieve, maintain: TRUE => satisfied, FALSE => violated",
                 "- avoid: TRUE => violated, FALSE => satisfied");
+    }
+
+    public void showGoalDesignReport() {
+        GoalDesignAnalyzer analyzer = new GoalDesignAnalyzer(goalModel, goalOclService);
+        List<GoalDesignAnalyzer.DesignIssue> issues = analyzer.analyze();
+
+        StringBuilder report = new StringBuilder();
+        report.append("GOAL design analysis\n");
+        report.append("Goal model: ").append(goalModel.getName()).append("\n\n");
+        report.append("This report answers whether the model is operationalized well enough to reach goals,\n");
+        report.append("separately from whether the OCL currently evaluates to true or false.\n\n");
+
+        if (issues.isEmpty()) {
+            report.append("No design issues found.\n");
+        } else {
+            for (GoalDesignAnalyzer.DesignIssue issue : issues) {
+                report.append("[").append(issue.severity()).append("] ")
+                        .append(issue.location()).append(": ")
+                        .append(issue.message()).append("\n");
+            }
+        }
+
+        JTextArea area = new JTextArea(report.toString(), 24, 88);
+        area.setEditable(false);
+        area.setCaretPosition(0);
+        JOptionPane.showMessageDialog(this, new JScrollPane(area),
+                "GOAL design analysis", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private int appendValidation(StringBuilder reportText, IntentionalElement element, String clauseName, String expression) {

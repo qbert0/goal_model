@@ -2,6 +2,7 @@ package org.vnu.sme.goal.parser;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -134,10 +135,12 @@ final class OclExpressionBuilder {
 
     private static Expression buildUnary(GOALParser.UnaryExpressionContext ctx) {
         if (ctx.NOT() != null) {
-            return new UnaryExp(ctx.getText(), UnaryExp.Operator.NOT, buildUnary(ctx.unaryExpression()));
+            Expression operand = buildUnary(ctx.unaryExpression());
+            return new UnaryExp("not " + operand.getText(), UnaryExp.Operator.NOT, operand);
         }
         if (ctx.MINUS() != null) {
-            return new UnaryExp(ctx.getText(), UnaryExp.Operator.NEGATE, buildUnary(ctx.unaryExpression()));
+            Expression operand = buildUnary(ctx.unaryExpression());
+            return new UnaryExp("-" + operand.getText(), UnaryExp.Operator.NEGATE, operand);
         }
         if (ctx.PLUS() != null) {
             return buildUnary(ctx.unaryExpression());
@@ -200,15 +203,18 @@ final class OclExpressionBuilder {
     private static Expression applySuffix(Expression source, GOALParser.PathSuffixContext suffix) {
         if (suffix.IDENT() != null) {
             boolean atPre = suffix.AT_PRE() != null;
-            return new PropertyCallExp(suffixText(source, suffix), source, suffix.IDENT().getText(), atPre);
+            return new PropertyCallExp(propertySuffixText(source, suffix.IDENT().getText(), atPre),
+                    source,
+                    suffix.IDENT().getText(),
+                    atPre);
         }
         if (suffix.simpleCall() != null) {
-            return buildSimpleCall(source, suffix.simpleCall(), suffixText(source, suffix), false);
+            return buildSimpleCall(source, suffix.simpleCall(), dottedCallText(source, suffix.simpleCall()), false);
         }
         if (suffix.collectionCall() != null) {
-            return buildCollectionCall(source, suffix.collectionCall(), suffixText(source, suffix));
+            return buildCollectionCall(source, suffix.collectionCall(), collectionCallText(source, suffix.collectionCall()));
         }
-        return new AtPreExp(suffixText(source, suffix), source);
+        return new AtPreExp(source.getText() + "@pre", source);
     }
 
     private static Expression buildCollectionCall(Expression source, GOALParser.CollectionCallContext ctx, String text) {
@@ -270,6 +276,7 @@ final class OclExpressionBuilder {
     private static IteratorExp.IteratorKind mapIteratorKind(String name) {
         return switch (name) {
             case "exists" -> IteratorExp.IteratorKind.EXISTS;
+            case "exist" -> IteratorExp.IteratorKind.EXISTS;
             case "forAll" -> IteratorExp.IteratorKind.FOR_ALL;
             case "collect" -> IteratorExp.IteratorKind.COLLECT;
             case "select" -> IteratorExp.IteratorKind.SELECT;
@@ -283,11 +290,84 @@ final class OclExpressionBuilder {
         };
     }
 
-    private static String suffixText(Expression source, GOALParser.PathSuffixContext suffix) {
-        return source.getText() + suffix.getText();
+    private static String propertySuffixText(Expression source, String property, boolean atPre) {
+        return source.getText() + "." + property + (atPre ? "@pre" : "");
     }
 
     private static String binaryText(Expression left, String operator, Expression right) {
-        return left.getText() + operator + right.getText();
+        return left.getText() + " " + operator + " " + right.getText();
+    }
+
+    private static String dottedCallText(Expression source, GOALParser.SimpleCallContext ctx) {
+        return source.getText() + "." + simpleCallText(ctx);
+    }
+
+    private static String collectionCallText(Expression source, GOALParser.CollectionCallContext ctx) {
+        if (ctx.iteratorCall() != null) {
+            return source.getText() + "->" + iteratorCallText(ctx.iteratorCall());
+        }
+        if (ctx.aggregateCall() != null) {
+            return source.getText() + "->" + aggregateCallText(ctx.aggregateCall());
+        }
+        return source.getText() + "->" + simpleCallText(ctx.simpleCall());
+    }
+
+    private static String simpleCallText(GOALParser.SimpleCallContext ctx) {
+        return ctx.IDENT().getText() + "(" + argumentListText(ctx.argumentList()) + ")";
+    }
+
+    private static String iteratorCallText(GOALParser.IteratorCallContext ctx) {
+        return ctx.iteratorOp().getText()
+                + "("
+                + iteratorVarsText(ctx.iteratorVars())
+                + " | "
+                + build(ctx.expression()).getText()
+                + ")";
+    }
+
+    private static String aggregateCallText(GOALParser.AggregateCallContext ctx) {
+        if (ctx.aggregateOp() != null) {
+            return ctx.aggregateOp().getText() + "(" + argumentListText(ctx.argumentList()) + ")";
+        }
+        return ctx.COUNT().getText()
+                + "("
+                + iteratorVarsText(ctx.iteratorVars())
+                + " | "
+                + build(ctx.expression()).getText()
+                + ")";
+    }
+
+    private static String argumentListText(GOALParser.ArgumentListContext ctx) {
+        if (ctx == null) {
+            return "";
+        }
+
+        StringJoiner joiner = new StringJoiner(", ");
+        for (GOALParser.ExpressionContext expression : ctx.expression()) {
+            joiner.add(build(expression).getText());
+        }
+        return joiner.toString();
+    }
+
+    private static String iteratorVarsText(GOALParser.IteratorVarsContext ctx) {
+        List<TerminalNode> names = ctx.IDENT();
+        List<GOALParser.QualifiedNameContext> types = ctx.qualifiedName();
+        if (names.size() == 1) {
+            if (types.isEmpty()) {
+                return names.get(0).getText();
+            }
+            return names.get(0).getText() + " : " + types.get(0).getText();
+        }
+
+        StringJoiner joiner = new StringJoiner(", ");
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i).getText();
+            if (i < types.size()) {
+                joiner.add(name + " : " + types.get(i).getText());
+            } else {
+                joiner.add(name);
+            }
+        }
+        return joiner.toString();
     }
 }

@@ -289,6 +289,7 @@ iteratorCall
 iteratorOp
     : FORALL
     | EXISTS
+    | EXIST
     | COLLECT
     | SELECT
     | REJECT
@@ -309,6 +310,7 @@ aggregateCall
 
 aggregateOp
     : SIZE
+    | SUM
     | MAX
     | MIN
     | IS_EMPTY
@@ -429,6 +431,7 @@ IMPLIES         : 'implies' ;
 // OCL iterator keywords (section 5)
 FORALL          : 'forAll' ;
 EXISTS          : 'exists' ;
+EXIST           : 'exist' ;
 COLLECT         : 'collect' ;
 SELECT          : 'select' ;
 REJECT          : 'reject' ;
@@ -440,6 +443,7 @@ CLOSURE         : 'closure' ;
 
 // OCL aggregation function keywords (section 6.3)
 SIZE            : 'size' ;
+SUM             : 'sum' ;
 MAX             : 'max' ;
 MIN             : 'min' ;
 COUNT           : 'count' ;

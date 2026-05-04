@@ -110,6 +110,10 @@ public class OclUseValidator {
         for (int i = startIndex; i < parts.length; i++) {
             String property = parts[i];
 
+            if (current == rootClass && isAllInstancesCall(property)) {
+                continue;
+            }
+
             MAttribute attribute = current.attribute(property, true);
             if (attribute != null) {
                 if (attribute.type() instanceof MClass) {
@@ -131,6 +135,10 @@ public class OclUseValidator {
         }
 
         return current;
+    }
+
+    private boolean isAllInstancesCall(String property) {
+        return "allInstances".equals(property) || "allinstances".equals(property);
     }
 
     private MClass resolveImplicitRootProperty(String property, OclValidationReport report) {

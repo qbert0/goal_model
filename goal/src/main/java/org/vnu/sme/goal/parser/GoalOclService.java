@@ -2,7 +2,8 @@ package org.vnu.sme.goal.parser;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.tzi.use.parser.ocl.OCLCompiler;
 import org.tzi.use.uml.mm.MClass;
@@ -13,10 +14,14 @@ import org.tzi.use.uml.ocl.value.BooleanValue;
 import org.tzi.use.uml.ocl.value.UndefinedValue;
 import org.tzi.use.uml.ocl.value.Value;
 import org.tzi.use.uml.ocl.value.VarBindings;
-import org.tzi.use.uml.sys.MObject;
 import org.tzi.use.uml.sys.MSystemState;
 
 public final class GoalOclService {
+    private static final Pattern SELF_ALL_INSTANCES_PATTERN =
+            Pattern.compile("\\bself\\.all[Ii]nstances\\b");
+    private static final Pattern SELF_PATTERN =
+            Pattern.compile("\\bself\\b");
+
     public enum EvalKind {
         TRUE,
         FALSE,
@@ -110,22 +115,22 @@ public final class GoalOclService {
 
     private String normalize(String expression) {
         String trimmed = expression.trim();
-        String rootObjectName = resolveRootObjectName();
-        if (rootObjectName == null) {
+        String rootInstanceExpression = resolveRootInstanceExpression();
+        String rootCollectionExpression = resolveRootCollectionExpression();
+        if (rootInstanceExpression == null || rootCollectionExpression == null) {
             return trimmed;
         }
 
-        if (trimmed.equals("self")) {
-            return rootObjectName;
-        }
-        if (trimmed.startsWith("self.")) {
-            return rootObjectName + trimmed.substring(4);
-        }
-        return trimmed;
+        String normalized = SELF_ALL_INSTANCES_PATTERN
+                .matcher(trimmed)
+                .replaceAll(Matcher.quoteReplacement(rootCollectionExpression));
+        return SELF_PATTERN
+                .matcher(normalized)
+                .replaceAll(Matcher.quoteReplacement(rootInstanceExpression));
     }
 
-    private String resolveRootObjectName() {
-        if (systemState == null || model == null) {
+    private String resolveRootCollectionExpression() {
+        if (model == null) {
             return null;
         }
 
@@ -134,10 +139,14 @@ public final class GoalOclService {
             return null;
         }
 
-        Set<MObject> objects = systemState.objectsOfClass(rootClass);
-        if (objects.size() != 1) {
+        return rootClass.name() + ".allInstances";
+    }
+
+    private String resolveRootInstanceExpression() {
+        String rootCollectionExpression = resolveRootCollectionExpression();
+        if (rootCollectionExpression == null) {
             return null;
         }
-        return objects.iterator().next().name();
+        return rootCollectionExpression + "->any(true)";
     }
 }

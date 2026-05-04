@@ -4,7 +4,7 @@ actor Customer {
     goal PaymentConfirmed {
         description = "Khách hàng đã hoàn tất thanh toán"
         achieve:
-            self.order->forAll(o | o.paymentConfirmed = true)
+            self.orders->forAll(o | o.paymentConfirmed = true)
     }
 }
 
@@ -43,10 +43,7 @@ agent DeliverySystem {
         pre:
             self.orders->exists(o | o.status = OrderStatus::CREATED and o.paymentConfirmed = true)
         post:
-            self.orders->forAll(o |
-                o.status@pre = OrderStatus::CREATED and o.paymentConfirmed@pre = true
-                implies o.status = OrderStatus::PROCESSING
-            )
+            self.orders->exists(o | o.status = OrderStatus::PROCESSING)
     }
 
     task AssignDriver &> DeliverPackage {
@@ -54,13 +51,8 @@ agent DeliverySystem {
             self.orders->exists(o | o.status = OrderStatus::PROCESSING and o.assignedDriver = null) and
             self.drivers->exists(d | d.available = true and d.licenseValid = true)
         post:
-            self.orders->forAll(o |
-                o.status@pre = OrderStatus::PROCESSING and o.assignedDriver@pre = null
-                implies o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null
-            ) and
-            self.orders->forAll(o |
-                o.assignedDriver <> null implies o.assignedDriver.available = false
-            )
+            self.orders->exists(o | o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null) and
+            self.orders->forAll(o | o.assignedDriver <> null implies o.assignedDriver.available = false)
     }
 
     task DeliverOrder &> DeliverPackage {
@@ -69,10 +61,7 @@ agent DeliverySystem {
                 o.status = OrderStatus::ASSIGNED and o.assignedDriver <> null and o.paymentConfirmed = true
             )
         post:
-            self.orders->forAll(o |
-                o.status@pre = OrderStatus::ASSIGNED and o.assignedDriver@pre <> null and o.paymentConfirmed@pre = true
-                implies o.status = OrderStatus::DELIVERED
-            )
+            self.orders->exists(o | o.status = OrderStatus::DELIVERED)
     }
 
     resource DriverDatabase <> AssignDriver { }
